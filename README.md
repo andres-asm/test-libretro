@@ -44,7 +44,7 @@ Every result is also written to the frontend's log.
 ## Building
 
 ```sh
-git clone --recursive <repo-url>
+git clone --recursive https://github.com/andres-asm/test-libretro.git
 cmake -S . -B build -G Ninja
 cmake --build build
 # -> build/test_wizard_libretro.so (.dll / .dylib)
@@ -52,7 +52,7 @@ cmake --build build
 
 Options: `TEST_WIZARD_WARNINGS_AS_ERRORS`, `TEST_WIZARD_SANITIZE` (ASan + UBSan).
 
-When built as part of Multitap (as the `hosts/host-libretro/tests-libretro`
+When built as part of Multitap (as the `hosts/host-libretro/test-libretro`
 submodule), those default to Multitap's own settings.
 
 ## Dependencies

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 
 project(test_wizard LANGUAGES C)
 
-# Works standalone and as a subdirectory of Multitap (hosts/host-libretro/tests-libretro).
+# Works standalone and as a subdirectory of Multitap (hosts/host-libretro/test-libretro).
 # Inside Multitap the options default to Multitap's own settings.
 if(DEFINED MULTITAP_WARNINGS_AS_ERRORS)
     set(_warnings_default ${MULTITAP_WARNINGS_AS_ERRORS})
