@@ -432,13 +432,32 @@ static void page_sram(CoreState* core, struct nk_context* ctx, bool entered)
 
 static void page_savestate(CoreState* core, struct nk_context* ctx)
 {
-    draw_text(ctx, 50, "Save a state, wait a few seconds, then load it. The frame counter must jump back "
-                       "to where it was when you saved, and the load counter must go up by one.");
+    draw_text(ctx, 66, "A state holds the frame counter, the page you're on and every page's result. "
+                       "Save a state here, wait a few seconds, load it: the frame counter must jump back. "
+                       "Then save on another page, come back here and load: you must land on that page, "
+                       "with the results it had when you saved.");
 
     nk_layout_row_dynamic(ctx, 18, 1);
     nk_labelf(ctx, NK_TEXT_LEFT, "Frame counter: %llu", (unsigned long long)core->frame_count);
-    nk_labelf_colored(ctx, NK_TEXT_LEFT, core->load_state_count > 0 ? color_good() : color_info(),
-                      "States loaded: %u", core->load_state_count);
+    if (core->states.saved > 0)
+    {
+        nk_labelf(ctx, NK_TEXT_LEFT, "States saved: %u, last at frame %llu on page %s", core->states.saved,
+                  (unsigned long long)core->states.saved_frame, pages_title(core->states.saved_page));
+    }
+    else
+    {
+        nk_label_colored(ctx, "States saved: none yet", NK_TEXT_LEFT, color_info());
+    }
+    if (core->load_state_count > 0)
+    {
+        nk_labelf_colored(ctx, NK_TEXT_LEFT, color_good(), "States loaded: %u, last back to frame %llu on page %s",
+                          core->load_state_count, (unsigned long long)core->states.loaded_frame,
+                          pages_title(core->states.loaded_page));
+    }
+    else
+    {
+        nk_label_colored(ctx, "States loaded: none yet", NK_TEXT_LEFT, color_info());
+    }
 }
 
 static void page_summary(CoreState* core, struct nk_context* ctx)

@@ -17,15 +17,21 @@
 /* The core's single instance. See core.h for why this is the one global. */
 static CoreState g_core;
 
-/* Savestate layout. Fixed size, so retro_serialize_size() never changes. */
+/*
+ * Savestate layout. Fixed size, so retro_serialize_size() never changes.
+ * Version 2 adds where the user was: the page and every page's result, so
+ * loading a state brings back that screen and those results.
+ */
 #define SAVESTATE_MAGIC   0x5A57544Du   /* "MTWZ" */
-#define SAVESTATE_VERSION 1u
+#define SAVESTATE_VERSION 2u
 
 typedef struct SaveStateData
 {
     uint32_t magic;
     uint32_t version;
     uint64_t frame_count;
+    uint32_t page;                     /* PageId */
+    uint32_t results[PAGE_COUNT];      /* TestResult per page */
 } SaveStateData;
 
 /* ---------------------------------------------------------------------------
@@ -386,6 +392,7 @@ size_t retro_serialize_size(void)
 bool retro_serialize(void* data, size_t size)
 {
     SaveStateData state;
+    unsigned i = 0;
 
     if (size < sizeof(state))
     {
@@ -395,13 +402,23 @@ bool retro_serialize(void* data, size_t size)
     state.magic = SAVESTATE_MAGIC;
     state.version = SAVESTATE_VERSION;
     state.frame_count = g_core.frame_count;
+    state.page = (uint32_t)g_core.pages.page;
+    for (i = 0; i < PAGE_COUNT; i++)
+    {
+        state.results[i] = (uint32_t)g_core.pages.results[i];
+    }
     memcpy(data, &state, sizeof(state));
+
+    g_core.states.saved++;
+    g_core.states.saved_frame = g_core.frame_count;
+    g_core.states.saved_page = g_core.pages.page;
     return true;
 }
 
 bool retro_unserialize(const void* data, size_t size)
 {
     SaveStateData state;
+    unsigned i = 0;
 
     if (size < sizeof(state))
     {
@@ -411,13 +428,38 @@ bool retro_unserialize(const void* data, size_t size)
     memcpy(&state, data, sizeof(state));
     if (state.magic != SAVESTATE_MAGIC || state.version != SAVESTATE_VERSION)
     {
-        core_log(&g_core, RETRO_LOG_WARN, "not a libretro test state\n");
+        core_log(&g_core, RETRO_LOG_WARN, "not a libretro test state (or an older version)\n");
         return false;
+    }
+    /* Never trust a file: reject values this core couldn't have written. */
+    if (state.page >= PAGE_COUNT)
+    {
+        core_log(&g_core, RETRO_LOG_WARN, "state has an invalid page (%u)\n", state.page);
+        return false;
+    }
+    for (i = 0; i < PAGE_COUNT; i++)
+    {
+        if (state.results[i] > RESULT_FAIL)
+        {
+            core_log(&g_core, RETRO_LOG_WARN, "state has an invalid result for page %u\n", i);
+            return false;
+        }
     }
 
     g_core.frame_count = state.frame_count;
+    g_core.pages.page = (PageId)state.page;
+    for (i = 0; i < PAGE_COUNT; i++)
+    {
+        g_core.pages.results[i] = (TestResult)state.results[i];
+    }
+    /* A Start/Select hold in progress mustn't carry over to the restored page. */
+    g_core.pages.waiting_for_release = true;
+
     g_core.load_state_count++;
-    core_log(&g_core, RETRO_LOG_INFO, "state loaded, frame %llu\n", (unsigned long long)state.frame_count);
+    g_core.states.loaded_frame = state.frame_count;
+    g_core.states.loaded_page = (PageId)state.page;
+    core_log(&g_core, RETRO_LOG_INFO, "state loaded: frame %llu, page %s\n", (unsigned long long)state.frame_count,
+             pages_title((PageId)state.page));
     return true;
 }
 

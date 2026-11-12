@@ -96,6 +96,16 @@ typedef struct CoreState
 
     uint64_t frame_count;          /* saved in savestates */
     unsigned load_state_count;     /* successful retro_unserialize calls */
+
+    /* For the Savestates page: what was saved and loaded last. */
+    struct
+    {
+        unsigned saved;            /* retro_serialize calls */
+        uint64_t saved_frame;
+        PageId   saved_page;
+        uint64_t loaded_frame;
+        PageId   loaded_page;
+    } states;
 } CoreState;
 
 /* Logs through the frontend's log interface (or stderr when there is none), prefixed "[libretro test] ". */
