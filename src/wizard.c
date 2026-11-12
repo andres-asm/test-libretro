@@ -227,9 +227,19 @@ static void page_environment(CoreState* core, struct nk_context* ctx)
              report->format_xrgb8888_accepted ? color_good() : color_info());
     draw_row(ctx, "Pixel format in use", video_pixel_format_name(core->framebuffer.format), color_info());
 
-    snprintf(text, sizeof(text), "%s", report->pixel_format_option_answered ? report->pixel_format_option : "no answer (default used)");
-    draw_row(ctx, "Core options (SET_VARIABLES)", report->variables_accepted ? "accepted" : "not supported", color_info());
-    draw_row(ctx, "  option testwizard_pixel_format", text, color_info());
+    snprintf(text, sizeof(text), "%u", report->options.version);
+    draw_row(ctx, "GET_CORE_OPTIONS_VERSION", report->options.version_answered ? text : "no answer (0 assumed)", color_info());
+    snprintf(text, sizeof(text), "%s: %s",
+             report->options.api_used == 2 ? "SET_CORE_OPTIONS_V2" :
+             report->options.api_used == 1 ? "SET_CORE_OPTIONS (v1)" : "SET_VARIABLES (v0)",
+             report->options.accepted ? "accepted" : "REFUSED");
+    /* A frontend that reports a version must accept that version's call. */
+    draw_row(ctx, "Core options sent as", text,
+             report->options.accepted ? color_good() : (report->options.version_answered ? color_bad() : color_info()));
+    draw_row(ctx, "  testwizard_pixel_format",
+             core->options.pixel_format_answered ? core->options.pixel_format : "no answer (default used)", color_info());
+    snprintf(text, sizeof(text), "%u", core->options.width);
+    draw_row(ctx, "  testwizard_width", core->options.width_answered ? text : "no answer (640 used)", color_info());
 
     draw_row(ctx, "GET_CAN_DUPE", report->can_dupe_answered ? yes_no(report->can_dupe) : "no answer", color_info());
     draw_row(ctx, "GET_INPUT_BITMASKS", yes_no(report->input_bitmasks), color_info());
@@ -256,6 +266,12 @@ static struct nk_rect page_video(CoreState* core, struct nk_context* ctx)
              video_pixel_format_name(core->framebuffer.format), core->framebuffer.width,
              core->framebuffer.height, (unsigned)core->framebuffer.pitch);
     draw_text(ctx, 18, text);
+    if (core->report.geometry_changes > 0)
+    {
+        snprintf(text, sizeof(text), "Width option changed %u time(s); last SET_GEOMETRY %s. Text must not look squeezed or stretched.",
+                 core->report.geometry_changes, core->report.geometry_accepted ? "accepted" : "REFUSED");
+        draw_text(ctx, 18, text);
+    }
     draw_text(ctx, 70, "Expected: eight solid color bars (white, yellow, cyan, green, magenta, red, blue, black), "
                        "then red, green, blue and grey ramps from dark to bright. In XRGB8888 the ramps are smooth; "
                        "16-bit formats show 32 (or 64 for green in RGB565) visible steps. "

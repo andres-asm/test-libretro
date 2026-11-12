@@ -35,6 +35,7 @@ add_library(test_wizard_libretro MODULE
     src/video.c
     src/input.c
     src/audio.c
+    src/options.c
     src/nuklear_impl.c
 )
 

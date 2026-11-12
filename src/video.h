@@ -15,9 +15,10 @@
 struct rawfb_context;
 struct nk_context;
 
-/* Fixed output size. */
-#define VIDEO_WIDTH  640u
-#define VIDEO_HEIGHT 480u
+/* Output size. The width can change at runtime (core option testwizard_width);
+ * VIDEO_MAX_WIDTH is what retro_get_system_av_info reports as max_width. */
+#define VIDEO_MAX_WIDTH 720u
+#define VIDEO_HEIGHT    480u
 
 /*
  * Each row is this many bytes LONGER than width * bytes_per_pixel, on purpose:
@@ -39,7 +40,8 @@ typedef struct Framebuffer
     uint8_t*                font_scratch;    /* memory rawfb bakes its font into */
 } Framebuffer;
 
-bool video_create(Framebuffer* framebuffer, enum retro_pixel_format format);
+/* width must be 1..VIDEO_MAX_WIDTH. */
+bool video_create(Framebuffer* framebuffer, enum retro_pixel_format format, unsigned width);
 void video_destroy(Framebuffer* framebuffer);
 
 struct nk_context* video_ui_context(Framebuffer* framebuffer);
@@ -50,6 +52,13 @@ void video_ui_render(Framebuffer* framebuffer);
 /* Direct drawing, clipped to the framebuffer. Colors are 8-bit per channel. */
 void video_fill_rect(Framebuffer* framebuffer, int x, int y, int width, int height,
                      uint8_t red, uint8_t green, uint8_t blue);
+
+/*
+ * The UI is drawn with square pixels, so the picture's aspect ratio is simply
+ * width / height: 4:3 at 640x480, 3:2 at 720x480. Reporting anything else
+ * would make the frontend squeeze or stretch the text.
+ */
+float video_aspect_ratio(unsigned width);
 
 const char* video_pixel_format_name(enum retro_pixel_format format);
 

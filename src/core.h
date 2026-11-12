@@ -15,6 +15,7 @@
 #include "audio.h"
 #include "input.h"
 #include "libretro.h"
+#include "options.h"
 #include "video.h"
 #include "wizard.h"
 
@@ -26,9 +27,7 @@ typedef struct EnvironmentReport
     bool log_interface;
 
     bool support_no_game_accepted;
-    bool variables_accepted;
-    bool pixel_format_option_answered;
-    char pixel_format_option[32];
+    OptionsReport options;            /* which options API we used and whether it was accepted */
 
     bool format_0rgb1555_accepted;    /* libretro's default; a frontend must accept it */
     bool format_rgb565_accepted;
@@ -51,6 +50,9 @@ typedef struct EnvironmentReport
 
     bool audio_video_enable_answered;
     int  audio_video_enable;
+
+    unsigned geometry_changes;        /* SET_GEOMETRY calls made (width option changes) */
+    bool     geometry_accepted;       /* answer to the last one */
 } EnvironmentReport;
 
 typedef struct CoreState
@@ -64,6 +66,7 @@ typedef struct CoreState
     retro_log_printf_t         log;
 
     EnvironmentReport report;
+    OptionValues      options;        /* last GET_VARIABLE answers */
 
     Framebuffer framebuffer;
     bool        game_loaded;

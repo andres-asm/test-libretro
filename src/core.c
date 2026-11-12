@@ -76,16 +76,13 @@ static enum retro_pixel_format choose_pixel_format(void)
     enum retro_pixel_format wanted = RETRO_PIXEL_FORMAT_XRGB8888;
     enum retro_pixel_format chosen = RETRO_PIXEL_FORMAT_0RGB1555;
 
-    if (report->pixel_format_option_answered)
+    if (strcmp(g_core.options.pixel_format, "RGB565") == 0)
     {
-        if (strcmp(report->pixel_format_option, "RGB565") == 0)
-        {
-            wanted = RETRO_PIXEL_FORMAT_RGB565;
-        }
-        else if (strcmp(report->pixel_format_option, "0RGB1555") == 0)
-        {
-            wanted = RETRO_PIXEL_FORMAT_0RGB1555;
-        }
+        wanted = RETRO_PIXEL_FORMAT_RGB565;
+    }
+    else if (strcmp(g_core.options.pixel_format, "0RGB1555") == 0)
+    {
+        wanted = RETRO_PIXEL_FORMAT_0RGB1555;
     }
 
     report->format_0rgb1555_accepted = try_pixel_format(RETRO_PIXEL_FORMAT_0RGB1555);
@@ -119,11 +116,6 @@ static enum retro_pixel_format choose_pixel_format(void)
 
 void retro_set_environment(retro_environment_t callback)
 {
-    /* Not const: SET_VARIABLES takes a non-const pointer (it never writes through it). */
-    static struct retro_variable variables[] = {
-        { "testwizard_pixel_format", "Pixel format (restart to apply); XRGB8888|RGB565|0RGB1555" },
-        { NULL, NULL },
-    };
     struct retro_log_callback log_callback;
     bool no_game = true;
 
@@ -138,7 +130,8 @@ void retro_set_environment(retro_environment_t callback)
 
     g_core.report.support_no_game_accepted = callback(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &no_game);
 
-    g_core.report.variables_accepted = callback(RETRO_ENVIRONMENT_SET_VARIABLES, variables);
+    /* v2, v1 or SET_VARIABLES, whichever the frontend says it supports (options.h). */
+    options_register(callback, &g_core.report.options);
 }
 
 void retro_set_video_refresh(retro_video_refresh_t callback)           { g_core.video_refresh = callback; }
@@ -206,32 +199,26 @@ void retro_deinit(void)
 bool retro_load_game(const struct retro_game_info* game)
 {
     EnvironmentReport* report = &g_core.report;
-    struct retro_variable variable;
     enum retro_pixel_format format;
 
     (void)game;   /* content is ignored; the wizard runs without it */
 
-    memset(&variable, 0, sizeof(variable));
-    variable.key = "testwizard_pixel_format";
-    if (g_core.environment(RETRO_ENVIRONMENT_GET_VARIABLE, &variable) && variable.value != NULL)
-    {
-        report->pixel_format_option_answered = true;
-        copy_text(report->pixel_format_option, sizeof(report->pixel_format_option), variable.value);
-    }
-
+    options_read(g_core.environment, &g_core.options);
     format = choose_pixel_format();
 
     report->audio_video_enable_answered =
         g_core.environment(RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE, &report->audio_video_enable);
 
-    if (!video_create(&g_core.framebuffer, format))
+    if (!video_create(&g_core.framebuffer, format, g_core.options.width))
     {
         core_log(&g_core, RETRO_LOG_ERROR, "could not create the framebuffer\n");
         return false;
     }
 
     g_core.game_loaded = true;
-    core_log(&g_core, RETRO_LOG_INFO, "running, pixel format %s\n", video_pixel_format_name(format));
+    core_log(&g_core, RETRO_LOG_INFO, "running, pixel format %s, %ux%u, options API v%u (%s)\n",
+             video_pixel_format_name(format), g_core.framebuffer.width, g_core.framebuffer.height,
+             report->options.api_used, report->options.accepted ? "accepted" : "refused");
     return true;
 }
 
@@ -252,11 +239,13 @@ void retro_unload_game(void)
 void retro_get_system_av_info(struct retro_system_av_info* info)
 {
     memset(info, 0, sizeof(*info));
-    info->geometry.base_width   = VIDEO_WIDTH;
+    /* max_width covers both width options, so changing the option at runtime
+       only needs SET_GEOMETRY (base size), never SET_SYSTEM_AV_INFO. */
+    info->geometry.base_width   = g_core.framebuffer.width > 0 ? g_core.framebuffer.width : OPTION_WIDTH_DEFAULT;
     info->geometry.base_height  = VIDEO_HEIGHT;
-    info->geometry.max_width    = VIDEO_WIDTH;
+    info->geometry.max_width    = VIDEO_MAX_WIDTH;
     info->geometry.max_height   = VIDEO_HEIGHT;
-    info->geometry.aspect_ratio = 4.0f / 3.0f;
+    info->geometry.aspect_ratio = video_aspect_ratio(info->geometry.base_width);
     info->timing.fps            = 60.0;
     info->timing.sample_rate    = AUDIO_SAMPLE_RATE;
 }
@@ -265,8 +254,60 @@ void retro_get_system_av_info(struct retro_system_av_info* info)
  * Running
  * ------------------------------------------------------------------------- */
 
+/*
+ * Re-reads the options when the frontend says one changed, and applies a new
+ * width right away: new framebuffer, then SET_GEOMETRY so the frontend knows
+ * the base size and aspect changed (square pixels at every width).
+ */
+static void apply_option_changes(void)
+{
+    struct retro_game_geometry geometry;
+    unsigned old_width = g_core.framebuffer.width;
+    enum retro_pixel_format format = g_core.framebuffer.format;
+
+    if (!options_changed(g_core.environment))
+    {
+        return;
+    }
+    options_read(g_core.environment, &g_core.options);
+    if (g_core.options.width == old_width)
+    {
+        return;
+    }
+
+    video_destroy(&g_core.framebuffer);
+    if (!video_create(&g_core.framebuffer, format, g_core.options.width))
+    {
+        core_log(&g_core, RETRO_LOG_ERROR, "could not resize the framebuffer to %u, staying at %u\n",
+                 g_core.options.width, old_width);
+        if (!video_create(&g_core.framebuffer, format, old_width))
+        {
+            core_log(&g_core, RETRO_LOG_ERROR, "could not recreate the framebuffer either\n");
+            g_core.game_loaded = false;
+            return;
+        }
+    }
+
+    memset(&geometry, 0, sizeof(geometry));
+    geometry.base_width   = g_core.framebuffer.width;
+    geometry.base_height  = g_core.framebuffer.height;
+    geometry.max_width    = VIDEO_MAX_WIDTH;
+    geometry.max_height   = VIDEO_HEIGHT;
+    geometry.aspect_ratio = video_aspect_ratio(g_core.framebuffer.width);
+    g_core.report.geometry_changes++;
+    g_core.report.geometry_accepted = g_core.environment(RETRO_ENVIRONMENT_SET_GEOMETRY, &geometry);
+    core_log(&g_core, RETRO_LOG_INFO, "width %u -> %u, SET_GEOMETRY %s\n", old_width, g_core.framebuffer.width,
+             g_core.report.geometry_accepted ? "accepted" : "refused");
+}
+
 void retro_run(void)
 {
+    if (!g_core.game_loaded)
+    {
+        return;
+    }
+
+    apply_option_changes();
     if (!g_core.game_loaded)
     {
         return;
