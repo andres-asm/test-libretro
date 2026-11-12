@@ -1,5 +1,5 @@
-#ifndef TEST_WIZARD_OPTIONS_H
-#define TEST_WIZARD_OPTIONS_H
+#ifndef TEST_LIBRETRO_OPTIONS_H
+#define TEST_LIBRETRO_OPTIONS_H
 
 /*
  * The core's options, defined once as core options v2 and handed to the

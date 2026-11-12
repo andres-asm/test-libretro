@@ -1,5 +1,5 @@
-#ifndef TEST_WIZARD_CORE_H
-#define TEST_WIZARD_CORE_H
+#ifndef TEST_LIBRETRO_CORE_H
+#define TEST_LIBRETRO_CORE_H
 
 /*
  * State shared by the core's modules.
@@ -17,7 +17,7 @@
 #include "libretro.h"
 #include "options.h"
 #include "video.h"
-#include "wizard.h"
+#include "pages.h"
 
 #define TEXT_FIELD_SIZE 256
 
@@ -72,13 +72,13 @@ typedef struct CoreState
     bool        game_loaded;
     InputState  input;
     AudioState  audio;
-    Wizard      wizard;
+    Pages      pages;
 
     uint64_t frame_count;          /* saved in savestates */
     unsigned load_state_count;     /* successful retro_unserialize calls */
 } CoreState;
 
-/* Logs through the frontend's log interface (or stderr when there is none), prefixed "[test-wizard] ". */
+/* Logs through the frontend's log interface (or stderr when there is none), prefixed "[libretro test] ". */
 #if defined(__GNUC__)
 void core_log(CoreState* core, enum retro_log_level level, const char* format, ...) __attribute__((format(printf, 3, 4)));
 #else

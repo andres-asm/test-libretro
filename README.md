@@ -1,4 +1,4 @@
-# Test Wizard
+# libretro test
 
 A libretro core for testing libretro **frontends**. Instead of emulating a
 system, it walks you through a series of test pages, next, next, next, and
@@ -39,7 +39,7 @@ Every result is also written to the frontend's log.
 
 | Option | Values |
 |--------|--------|
-| `testwizard_pixel_format` | `XRGB8888` (default), `RGB565`, `0RGB1555`. Restart the core to apply. |
+| `libretro_test_pixel_format` | `XRGB8888` (default), `RGB565`, `0RGB1555`. Restart the core to apply. |
 
 ## Building
 
@@ -47,10 +47,10 @@ Every result is also written to the frontend's log.
 git clone --recursive https://github.com/andres-asm/test-libretro.git
 cmake -S . -B build -G Ninja
 cmake --build build
-# -> build/test_wizard_libretro.so (.dll / .dylib)
+# -> build/test_libretro.so (.dll / .dylib)
 ```
 
-Options: `TEST_WIZARD_WARNINGS_AS_ERRORS`, `TEST_WIZARD_SANITIZE` (ASan + UBSan).
+Options: `TEST_LIBRETRO_WARNINGS_AS_ERRORS`, `TEST_LIBRETRO_SANITIZE` (ASan + UBSan).
 
 When built as part of Multitap (as the `hosts/host-libretro/test-libretro`
 submodule), those default to Multitap's own settings.

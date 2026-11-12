@@ -1,5 +1,5 @@
-#ifndef TEST_WIZARD_VIDEO_H
-#define TEST_WIZARD_VIDEO_H
+#ifndef TEST_LIBRETRO_VIDEO_H
+#define TEST_LIBRETRO_VIDEO_H
 
 /*
  * The core's software framebuffer, in whichever libretro pixel format the
@@ -15,7 +15,7 @@
 struct rawfb_context;
 struct nk_context;
 
-/* Output size. The width can change at runtime (core option testwizard_width);
+/* Output size. The width can change at runtime (core option libretro_test_width);
  * VIDEO_MAX_WIDTH is what retro_get_system_av_info reports as max_width. */
 #define VIDEO_MAX_WIDTH 720u
 #define VIDEO_HEIGHT    480u

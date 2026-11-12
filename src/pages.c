@@ -1,4 +1,4 @@
-#include "wizard.h"
+#include "pages.h"
 
 #include <stdio.h>
 
@@ -18,7 +18,7 @@ static struct nk_color color_pressed(void) { return nk_rgb(255, 220, 80); }
  * Names
  * ------------------------------------------------------------------------- */
 
-const char* wizard_page_title(PageId page)
+const char* pages_title(PageId page)
 {
     switch (page)
     {
@@ -58,66 +58,66 @@ static struct nk_color result_color(TestResult result)
 
 static void finish_page(CoreState* core, TestResult result)
 {
-    Wizard* wizard = &core->wizard;
+    Pages* pages = &core->pages;
 
-    if (wizard->page == PAGE_SUMMARY)
+    if (pages->page == PAGE_SUMMARY)
     {
-        if (!wizard->shutdown_requested)
+        if (!pages->shutdown_requested)
         {
-            wizard->shutdown_requested = true;
+            pages->shutdown_requested = true;
             core_log(core, RETRO_LOG_INFO, "finished, requesting SHUTDOWN\n");
             core->environment(RETRO_ENVIRONMENT_SHUTDOWN, NULL);
         }
         return;
     }
 
-    wizard->results[wizard->page] = result;
-    core_log(core, RETRO_LOG_INFO, "%s: %s\n", wizard_page_title(wizard->page), result_name(result));
-    wizard->page = (PageId)(wizard->page + 1);
+    pages->results[pages->page] = result;
+    core_log(core, RETRO_LOG_INFO, "%s: %s\n", pages_title(pages->page), result_name(result));
+    pages->page = (PageId)(pages->page + 1);
 }
 
-static void previous_page(Wizard* wizard)
+static void previous_page(Pages* pages)
 {
-    if (wizard->page > PAGE_ENVIRONMENT)
+    if (pages->page > PAGE_ENVIRONMENT)
     {
-        wizard->page = (PageId)(wizard->page - 1);
+        pages->page = (PageId)(pages->page - 1);
     }
 }
 
-/* Joypad controls. Mouse/pointer clicks are handled by the buttons in draw_footer(). */
+/* Joypad controls. Mouse/pointer clicks are handled by the buttons in draw_navigation(). */
 static void handle_controller(CoreState* core)
 {
-    Wizard* wizard = &core->wizard;
+    Pages* pages = &core->pages;
     const InputState* input = &core->input;
 
-    if (wizard->waiting_for_release)
+    if (pages->waiting_for_release)
     {
         if (!input_is_down(input, RETRO_DEVICE_ID_JOYPAD_START) && !input_is_down(input, RETRO_DEVICE_ID_JOYPAD_SELECT))
         {
-            wizard->waiting_for_release = false;
+            pages->waiting_for_release = false;
         }
         return;
     }
 
     if (input->start_held_frames >= INPUT_HOLD_FRAMES)
     {
-        wizard->waiting_for_release = true;
+        pages->waiting_for_release = true;
         finish_page(core, RESULT_PASS);
         return;
     }
-    if (input->select_held_frames >= INPUT_HOLD_FRAMES && wizard->page != PAGE_SUMMARY)
+    if (input->select_held_frames >= INPUT_HOLD_FRAMES && pages->page != PAGE_SUMMARY)
     {
-        wizard->waiting_for_release = true;
+        pages->waiting_for_release = true;
         finish_page(core, RESULT_FAIL);
         return;
     }
     if (input_was_pressed(input, RETRO_DEVICE_ID_JOYPAD_L))
     {
-        previous_page(wizard);
+        previous_page(pages);
     }
 
     /* Page-specific controls. */
-    if (wizard->page == PAGE_AUDIO)
+    if (pages->page == PAGE_AUDIO)
     {
         if (input_was_pressed(input, RETRO_DEVICE_ID_JOYPAD_RIGHT))
         {
@@ -151,33 +151,29 @@ static void draw_text(struct nk_context* ctx, float height, const char* text)
     nk_label_wrap(ctx, text);
 }
 
-static void draw_footer(CoreState* core, struct nk_context* ctx)
+/*
+ * Navigation, drawn at the TOP of every page, so Back / Fail / Pass sit in the
+ * same spot whatever the page's length (and a short frontend window never cuts
+ * them off). Buttons first, then the hold-to-pass/fail progress.
+ */
+static void draw_navigation(CoreState* core, struct nk_context* ctx)
 {
-    Wizard* wizard = &core->wizard;
+    Pages* pages = &core->pages;
     unsigned start_hold = core->input.start_held_frames;
     unsigned select_hold = core->input.select_held_frames;
 
-    if (wizard->waiting_for_release)
+    if (pages->waiting_for_release)
     {
         start_hold = 0;
         select_hold = 0;
     }
 
-    nk_layout_row_dynamic(ctx, 18, 4);
-    nk_labelf(ctx, NK_TEXT_LEFT, "Hold Start to %s:", wizard->page == PAGE_SUMMARY ? "finish" : "pass");
-    nk_prog(ctx, start_hold, INPUT_HOLD_FRAMES, nk_false);
-    if (wizard->page != PAGE_SUMMARY)
-    {
-        nk_label(ctx, "Hold Select to fail:", NK_TEXT_LEFT);
-        nk_prog(ctx, select_hold, INPUT_HOLD_FRAMES, nk_false);
-    }
-
     nk_layout_row_dynamic(ctx, 28, 3);
     if (nk_button_label(ctx, "Back (L)"))
     {
-        previous_page(wizard);
+        previous_page(pages);
     }
-    if (wizard->page == PAGE_SUMMARY)
+    if (pages->page == PAGE_SUMMARY)
     {
         nk_label(ctx, "", NK_TEXT_LEFT);   /* empty middle cell */
         if (nk_button_label(ctx, "Finish"))
@@ -196,6 +192,19 @@ static void draw_footer(CoreState* core, struct nk_context* ctx)
             finish_page(core, RESULT_PASS);
         }
     }
+
+    nk_layout_row_dynamic(ctx, 18, 4);
+    nk_labelf(ctx, NK_TEXT_LEFT, "Hold Start to %s:", pages->page == PAGE_SUMMARY ? "finish" : "pass");
+    nk_prog(ctx, start_hold, INPUT_HOLD_FRAMES, nk_false);
+    if (pages->page != PAGE_SUMMARY)
+    {
+        nk_label(ctx, "Hold Select to fail:", NK_TEXT_LEFT);
+        nk_prog(ctx, select_hold, INPUT_HOLD_FRAMES, nk_false);
+    }
+
+    /* A thin gap between the navigation and the page. */
+    nk_layout_row_dynamic(ctx, 6, 1);
+    nk_label(ctx, "", NK_TEXT_LEFT);   /* not nk_spacing(): see page_video() */
 }
 
 /* ---------------------------------------------------------------------------
@@ -236,10 +245,10 @@ static void page_environment(CoreState* core, struct nk_context* ctx)
     /* A frontend that reports a version must accept that version's call. */
     draw_row(ctx, "Core options sent as", text,
              report->options.accepted ? color_good() : (report->options.version_answered ? color_bad() : color_info()));
-    draw_row(ctx, "  testwizard_pixel_format",
+    draw_row(ctx, "  libretro_test_pixel_format",
              core->options.pixel_format_answered ? core->options.pixel_format : "no answer (default used)", color_info());
     snprintf(text, sizeof(text), "%u", core->options.width);
-    draw_row(ctx, "  testwizard_width", core->options.width_answered ? text : "no answer (640 used)", color_info());
+    draw_row(ctx, "  libretro_test_width", core->options.width_answered ? text : "no answer (640 used)", color_info());
 
     draw_row(ctx, "GET_CAN_DUPE", report->can_dupe_answered ? yes_no(report->can_dupe) : "no answer", color_info());
     draw_row(ctx, "GET_INPUT_BITMASKS", yes_no(report->input_bitmasks), color_info());
@@ -391,17 +400,17 @@ static void page_summary(CoreState* core, struct nk_context* ctx)
     draw_text(ctx, 18, "Results. Finishing asks the frontend to shut the core down (RETRO_ENVIRONMENT_SHUTDOWN).");
     for (page = 0; page < PAGE_SUMMARY; page++)
     {
-        TestResult result = core->wizard.results[page];
-        draw_row(ctx, wizard_page_title((PageId)page), result_name(result), result_color(result));
+        TestResult result = core->pages.results[page];
+        draw_row(ctx, pages_title((PageId)page), result_name(result), result_color(result));
     }
 
-    if (!core->wizard.summary_logged)
+    if (!core->pages.summary_logged)
     {
-        core->wizard.summary_logged = true;
+        core->pages.summary_logged = true;
         for (page = 0; page < PAGE_SUMMARY; page++)
         {
-            core_log(core, RETRO_LOG_INFO, "summary: %-12s %s\n", wizard_page_title((PageId)page),
-                     result_name(core->wizard.results[page]));
+            core_log(core, RETRO_LOG_INFO, "summary: %-12s %s\n", pages_title((PageId)page),
+                     result_name(core->pages.results[page]));
         }
     }
 }
@@ -410,16 +419,16 @@ static void page_summary(CoreState* core, struct nk_context* ctx)
  * Frame
  * ------------------------------------------------------------------------- */
 
-void wizard_run_frame(CoreState* core)
+void pages_run_frame(CoreState* core)
 {
-    Wizard* wizard = &core->wizard;
+    Pages* pages = &core->pages;
     struct nk_context* ctx = video_ui_context(&core->framebuffer);
     struct nk_rect pattern_area = nk_rect(0, 0, 0, 0);
     bool draw_pattern = false;
     char title[64];
 
     handle_controller(core);
-    core->audio.playing = (wizard->page == PAGE_AUDIO);
+    core->audio.playing = (pages->page == PAGE_AUDIO);
 
     nk_input_begin(ctx);
     if (core->input.pointer_valid)
@@ -430,13 +439,14 @@ void wizard_run_frame(CoreState* core)
     }
     nk_input_end(ctx);
 
-    snprintf(title, sizeof(title), "Test %d/%d: %s", (int)wizard->page + 1, (int)PAGE_COUNT, wizard_page_title(wizard->page));
+    snprintf(title, sizeof(title), "Test %d/%d: %s", (int)pages->page + 1, (int)PAGE_COUNT, pages_title(pages->page));
 
     /* Same window name every frame so Nuklear keeps its state; the visible title changes. */
-    if (nk_begin_titled(ctx, "wizard", title, nk_rect(0, 0, (float)core->framebuffer.width, (float)core->framebuffer.height),
+    if (nk_begin_titled(ctx, "pages", title, nk_rect(0, 0, (float)core->framebuffer.width, (float)core->framebuffer.height),
                         NK_WINDOW_BORDER | NK_WINDOW_TITLE))
     {
-        switch (wizard->page)
+        draw_navigation(core, ctx);
+        switch (pages->page)
         {
             case PAGE_ENVIRONMENT: page_environment(core, ctx); break;
             case PAGE_VIDEO:       pattern_area = page_video(core, ctx); draw_pattern = true; break;
@@ -446,7 +456,6 @@ void wizard_run_frame(CoreState* core)
             case PAGE_SUMMARY:     page_summary(core, ctx); break;
             default:               break;
         }
-        draw_footer(core, ctx);
     }
     nk_end(ctx);
 

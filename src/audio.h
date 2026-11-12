@@ -1,5 +1,5 @@
-#ifndef TEST_WIZARD_AUDIO_H
-#define TEST_WIZARD_AUDIO_H
+#ifndef TEST_LIBRETRO_AUDIO_H
+#define TEST_LIBRETRO_AUDIO_H
 
 /* A 440 Hz test tone, or silence, submitted every frame at 48 kHz stereo. */
 

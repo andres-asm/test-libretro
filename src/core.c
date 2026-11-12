@@ -1,5 +1,5 @@
 /*
- * libretro entry points of the test wizard core.
+ * libretro entry points of the libretro test core.
  *
  * Order the frontend calls us in (libretro.h):
  *   retro_set_environment -> retro_get_system_info -> retro_init
@@ -43,11 +43,11 @@ void core_log(CoreState* core, enum retro_log_level level, const char* format, .
 
     if (core->log != NULL)
     {
-        core->log(level, "[test-wizard] %s", message);
+        core->log(level, "[libretro test] %s", message);
     }
     else
     {
-        fprintf(stderr, "[test-wizard] %s", message);
+        fprintf(stderr, "[libretro test] %s", message);
     }
 }
 
@@ -148,7 +148,7 @@ unsigned retro_api_version(void)
 void retro_get_system_info(struct retro_system_info* info)
 {
     memset(info, 0, sizeof(*info));
-    info->library_name     = "Test Wizard";
+    info->library_name     = "libretro test";
     info->library_version  = "0.1";
     info->valid_extensions = "";
     info->need_fullpath    = false;
@@ -201,7 +201,7 @@ bool retro_load_game(const struct retro_game_info* game)
     EnvironmentReport* report = &g_core.report;
     enum retro_pixel_format format;
 
-    (void)game;   /* content is ignored; the wizard runs without it */
+    (void)game;   /* content is ignored; the core runs without it */
 
     options_read(g_core.environment, &g_core.options);
     format = choose_pixel_format();
@@ -317,7 +317,7 @@ void retro_run(void)
 
     input_update(&g_core.input, g_core.input_poll, g_core.input_state,
                  g_core.framebuffer.width, g_core.framebuffer.height);
-    wizard_run_frame(&g_core);
+    pages_run_frame(&g_core);
 
     g_core.video_refresh(g_core.framebuffer.pixels, g_core.framebuffer.width,
                          g_core.framebuffer.height, g_core.framebuffer.pitch);
@@ -372,7 +372,7 @@ bool retro_unserialize(const void* data, size_t size)
     memcpy(&state, data, sizeof(state));
     if (state.magic != SAVESTATE_MAGIC || state.version != SAVESTATE_VERSION)
     {
-        core_log(&g_core, RETRO_LOG_WARN, "not a test wizard state\n");
+        core_log(&g_core, RETRO_LOG_WARN, "not a libretro test state\n");
         return false;
     }
 

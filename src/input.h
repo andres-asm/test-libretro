@@ -1,5 +1,5 @@
-#ifndef TEST_WIZARD_INPUT_H
-#define TEST_WIZARD_INPUT_H
+#ifndef TEST_LIBRETRO_INPUT_H
+#define TEST_LIBRETRO_INPUT_H
 
 /* Reads port 0 (joypad, analog sticks, pointer) once per frame. */
 

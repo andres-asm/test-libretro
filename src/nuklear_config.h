@@ -1,5 +1,5 @@
-#ifndef TEST_WIZARD_NUKLEAR_CONFIG_H
-#define TEST_WIZARD_NUKLEAR_CONFIG_H
+#ifndef TEST_LIBRETRO_NUKLEAR_CONFIG_H
+#define TEST_LIBRETRO_NUKLEAR_CONFIG_H
 
 /*
  * Every file that includes nuklear.h must see exactly the same NK_* options,

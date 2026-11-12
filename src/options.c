@@ -15,7 +15,7 @@ static struct retro_core_option_v2_category CATEGORIES[] = {
 
 static struct retro_core_option_v2_definition DEFINITIONS[] = {
     {
-        "testwizard_pixel_format",
+        "libretro_test_pixel_format",
         "Video > Pixel format (restart)",
         "Pixel format (restart)",
         "Pixel format the core asks for. Applied when the core is loaded again.",
@@ -30,7 +30,7 @@ static struct retro_core_option_v2_definition DEFINITIONS[] = {
         "XRGB8888",
     },
     {
-        "testwizard_width",
+        "libretro_test_width",
         "Video > Width",
         "Width",
         "Image width, with square pixels: 640 x 480 is 4:3, 720 x 480 is 3:2. Changes are "
@@ -165,13 +165,13 @@ void options_read(retro_environment_t environment, OptionValues* values)
     snprintf(values->pixel_format, sizeof(values->pixel_format), "%s", "XRGB8888");
     values->width = OPTION_WIDTH_DEFAULT;
 
-    if (get_variable(environment, "testwizard_pixel_format", &value))
+    if (get_variable(environment, "libretro_test_pixel_format", &value))
     {
         values->pixel_format_answered = true;
         snprintf(values->pixel_format, sizeof(values->pixel_format), "%s", value);
     }
 
-    if (get_variable(environment, "testwizard_width", &value))
+    if (get_variable(environment, "libretro_test_width", &value))
     {
         values->width_answered = true;
         values->width = strcmp(value, "720") == 0 ? OPTION_WIDTH_WIDE : OPTION_WIDTH_DEFAULT;

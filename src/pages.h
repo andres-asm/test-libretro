@@ -1,5 +1,5 @@
-#ifndef TEST_WIZARD_WIZARD_H
-#define TEST_WIZARD_WIZARD_H
+#ifndef TEST_LIBRETRO_PAGES_H
+#define TEST_LIBRETRO_PAGES_H
 
 /*
  * The test pages and moving between them.
@@ -31,20 +31,20 @@ typedef enum TestResult
     RESULT_FAIL
 } TestResult;
 
-typedef struct Wizard
+typedef struct Pages
 {
     PageId     page;
     TestResult results[PAGE_COUNT];   /* PAGE_SUMMARY's entry is unused */
     bool       waiting_for_release;   /* after a hold triggered: ignore Start/Select until both are released */
     bool       summary_logged;
     bool       shutdown_requested;
-} Wizard;
+} Pages;
 
 struct CoreState;
 
 /* Called once per retro_run, after input was read. Builds and renders the UI. */
-void wizard_run_frame(struct CoreState* core);
+void pages_run_frame(struct CoreState* core);
 
-const char* wizard_page_title(PageId page);
+const char* pages_title(PageId page);
 
 #endif
