@@ -40,11 +40,18 @@ Every result is also written to the frontend's log.
 | Option | Values |
 |--------|--------|
 | `libretro_test_pixel_format` | `XRGB8888` (default), `RGB565`, `0RGB1555`. Restart the core to apply. |
+| `libretro_test_width` | `640` (default, 640x480, 4:3), `720` (720x480, 3:2). Applied while running with `SET_GEOMETRY`. |
+
+Options are defined as core options v2 (category "Video") and sent in the
+newest format the frontend reports with `GET_CORE_OPTIONS_VERSION`: v2, v1, or
+`SET_VARIABLES` when the frontend doesn't answer. The Environment page shows
+which one was used.
 
 ## Building
 
 ```sh
 git clone --recursive https://github.com/andres-asm/test-libretro.git
+cd test-libretro
 cmake -S . -B build -G Ninja
 cmake --build build
 # -> build/test_libretro.so (.dll / .dylib)
