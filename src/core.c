@@ -244,7 +244,10 @@ bool retro_load_game(const struct retro_game_info* game)
     report->audio_video_enable_answered =
         g_core.environment(RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE, &report->audio_video_enable);
 
-    if (!video_create(&g_core.framebuffer, format, g_core.options.width))
+    g_core.fps = g_core.options.fps;
+    g_core.max_height = g_core.options.height;
+    g_core.audio.frames_per_run = (unsigned)(AUDIO_SAMPLE_RATE / (double)g_core.fps);
+    if (!video_create(&g_core.framebuffer, format, g_core.options.width, g_core.options.height))
     {
         core_log(&g_core, RETRO_LOG_ERROR, "could not create the framebuffer\n");
         return false;
@@ -277,11 +280,13 @@ void retro_get_system_av_info(struct retro_system_av_info* info)
     /* max_width covers both width options, so changing the option at runtime
        only needs SET_GEOMETRY (base size), never SET_SYSTEM_AV_INFO. */
     info->geometry.base_width   = g_core.framebuffer.width > 0 ? g_core.framebuffer.width : OPTION_WIDTH_DEFAULT;
-    info->geometry.base_height  = VIDEO_HEIGHT;
+    info->geometry.base_height  = g_core.framebuffer.height > 0 ? g_core.framebuffer.height : OPTION_HEIGHT_DEFAULT;
     info->geometry.max_width    = VIDEO_MAX_WIDTH;
-    info->geometry.max_height   = VIDEO_HEIGHT;
-    info->geometry.aspect_ratio = video_aspect_ratio(info->geometry.base_width);
-    info->timing.fps            = 60.0;
+    /* Only as tall as the current height: a taller height option then NEEDS
+       SET_SYSTEM_AV_INFO (new maximum), which is what that option tests. */
+    info->geometry.max_height   = g_core.max_height > 0 ? g_core.max_height : OPTION_HEIGHT_DEFAULT;
+    info->geometry.aspect_ratio = video_aspect_ratio(info->geometry.base_width, info->geometry.base_height);
+    info->timing.fps            = g_core.fps > 0 ? (double)g_core.fps : (double)OPTION_FPS_DEFAULT;
     info->timing.sample_rate    = AUDIO_SAMPLE_RATE;
 }
 
@@ -290,49 +295,83 @@ void retro_get_system_av_info(struct retro_system_av_info* info)
  * ------------------------------------------------------------------------- */
 
 /*
- * Re-reads the options when the frontend says one changed, and applies a new
- * width right away: new framebuffer, then SET_GEOMETRY so the frontend knows
- * the base size and aspect changed (square pixels at every width).
+ * Re-reads the options when the frontend says one changed, and applies them
+ * right away (only allowed from inside retro_run):
+ *   - height or frame rate changed -> SET_SYSTEM_AV_INFO (new maximum size or
+ *     new timing: the frontend must reinitialize video/audio timing);
+ *   - only the width changed       -> SET_GEOMETRY (fits the reported maximum).
+ * Pixels stay square, so the aspect ratio is always width / height.
  */
+static bool resize_framebuffer(unsigned width, unsigned height)
+{
+    unsigned old_width = g_core.framebuffer.width;
+    unsigned old_height = g_core.framebuffer.height;
+    enum retro_pixel_format format = g_core.framebuffer.format;
+
+    video_destroy(&g_core.framebuffer);
+    if (video_create(&g_core.framebuffer, format, width, height))
+    {
+        return true;
+    }
+    core_log(&g_core, RETRO_LOG_ERROR, "could not resize the framebuffer to %ux%u, staying at %ux%u\n", width,
+             height, old_width, old_height);
+    if (!video_create(&g_core.framebuffer, format, old_width, old_height))
+    {
+        core_log(&g_core, RETRO_LOG_ERROR, "could not recreate the framebuffer either\n");
+        g_core.game_loaded = false;
+    }
+    return false;
+}
+
 static void apply_option_changes(void)
 {
-    struct retro_game_geometry geometry;
     unsigned old_width = g_core.framebuffer.width;
-    enum retro_pixel_format format = g_core.framebuffer.format;
+    unsigned old_height = g_core.framebuffer.height;
+    unsigned old_fps = g_core.fps;
 
     if (!options_changed(g_core.environment))
     {
         return;
     }
     options_read(g_core.environment, &g_core.options);
-    if (g_core.options.width == old_width)
+
+    if ((g_core.options.width != old_width || g_core.options.height != old_height) &&
+        !resize_framebuffer(g_core.options.width, g_core.options.height))
     {
         return;
     }
 
-    video_destroy(&g_core.framebuffer);
-    if (!video_create(&g_core.framebuffer, format, g_core.options.width))
+    if (g_core.options.height != old_height || g_core.options.fps != old_fps)
     {
-        core_log(&g_core, RETRO_LOG_ERROR, "could not resize the framebuffer to %u, staying at %u\n",
-                 g_core.options.width, old_width);
-        if (!video_create(&g_core.framebuffer, format, old_width))
-        {
-            core_log(&g_core, RETRO_LOG_ERROR, "could not recreate the framebuffer either\n");
-            g_core.game_loaded = false;
-            return;
-        }
+        struct retro_system_av_info info;
+
+        g_core.max_height = g_core.framebuffer.height;
+        g_core.fps = g_core.options.fps;
+        g_core.audio.frames_per_run = (unsigned)(AUDIO_SAMPLE_RATE / (double)g_core.fps);
+        retro_get_system_av_info(&info);
+        g_core.report.av_info_changes++;
+        g_core.report.av_info_accepted = g_core.environment(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &info);
+        core_log(&g_core, RETRO_LOG_INFO, "%ux%u @ %u fps -> %ux%u @ %u fps, SET_SYSTEM_AV_INFO %s\n", old_width,
+                 old_height, old_fps, g_core.framebuffer.width, g_core.framebuffer.height, g_core.fps,
+                 g_core.report.av_info_accepted ? "accepted" : "refused");
+        return;
     }
 
-    memset(&geometry, 0, sizeof(geometry));
-    geometry.base_width   = g_core.framebuffer.width;
-    geometry.base_height  = g_core.framebuffer.height;
-    geometry.max_width    = VIDEO_MAX_WIDTH;
-    geometry.max_height   = VIDEO_HEIGHT;
-    geometry.aspect_ratio = video_aspect_ratio(g_core.framebuffer.width);
-    g_core.report.geometry_changes++;
-    g_core.report.geometry_accepted = g_core.environment(RETRO_ENVIRONMENT_SET_GEOMETRY, &geometry);
-    core_log(&g_core, RETRO_LOG_INFO, "width %u -> %u, SET_GEOMETRY %s\n", old_width, g_core.framebuffer.width,
-             g_core.report.geometry_accepted ? "accepted" : "refused");
+    if (g_core.options.width != old_width)
+    {
+        struct retro_game_geometry geometry;
+
+        memset(&geometry, 0, sizeof(geometry));
+        geometry.base_width   = g_core.framebuffer.width;
+        geometry.base_height  = g_core.framebuffer.height;
+        geometry.max_width    = VIDEO_MAX_WIDTH;
+        geometry.max_height   = g_core.max_height;
+        geometry.aspect_ratio = video_aspect_ratio(g_core.framebuffer.width, g_core.framebuffer.height);
+        g_core.report.geometry_changes++;
+        g_core.report.geometry_accepted = g_core.environment(RETRO_ENVIRONMENT_SET_GEOMETRY, &geometry);
+        core_log(&g_core, RETRO_LOG_INFO, "width %u -> %u, SET_GEOMETRY %s\n", old_width, g_core.framebuffer.width,
+                 g_core.report.geometry_accepted ? "accepted" : "refused");
+    }
 }
 
 void retro_run(void)

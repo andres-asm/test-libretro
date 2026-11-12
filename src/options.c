@@ -44,6 +44,39 @@ static struct retro_core_option_v2_definition DEFINITIONS[] = {
         },
         "640",
     },
+    {
+        "libretro_test_height",
+        "Video > Height (SET_SYSTEM_AV_INFO)",
+        "Height (SET_SYSTEM_AV_INFO)",
+        "Image height. Taller than the maximum the core reported at load, so it is sent with "
+        "SET_SYSTEM_AV_INFO (new maximum size). Pixels stay square.",
+        NULL,
+        "video",
+        {
+            { "480", NULL },
+            { "600", NULL },
+            { "720", NULL },
+            { NULL, NULL },
+        },
+        "480",
+    },
+    {
+        "libretro_test_fps",
+        "Video > Frame rate (SET_SYSTEM_AV_INFO)",
+        "Frame rate (SET_SYSTEM_AV_INFO)",
+        "Frames per second the core runs at, sent with SET_SYSTEM_AV_INFO. The frontend must run "
+        "the core at this speed: audio stays 48000 Hz, so each frame carries 48000 / fps samples.",
+        NULL,
+        "video",
+        {
+            { "60", "60 fps" },
+            { "50", "50 fps" },
+            { "40", "40 fps" },
+            { "30", "30 fps" },
+            { NULL, NULL },
+        },
+        "60",
+    },
     { NULL, NULL, NULL, NULL, NULL, NULL, { { NULL, NULL } }, NULL },
 };
 
@@ -164,6 +197,8 @@ void options_read(retro_environment_t environment, OptionValues* values)
     memset(values, 0, sizeof(*values));
     snprintf(values->pixel_format, sizeof(values->pixel_format), "%s", "XRGB8888");
     values->width = OPTION_WIDTH_DEFAULT;
+    values->height = OPTION_HEIGHT_DEFAULT;
+    values->fps = OPTION_FPS_DEFAULT;
 
     if (get_variable(environment, "libretro_test_pixel_format", &value))
     {
@@ -175,6 +210,20 @@ void options_read(retro_environment_t environment, OptionValues* values)
     {
         values->width_answered = true;
         values->width = strcmp(value, "720") == 0 ? OPTION_WIDTH_WIDE : OPTION_WIDTH_DEFAULT;
+    }
+
+    if (get_variable(environment, "libretro_test_height", &value))
+    {
+        unsigned height = (unsigned)strtoul(value, NULL, 10);
+        values->height_answered = true;
+        values->height = (height == 600u || height == 720u) ? height : OPTION_HEIGHT_DEFAULT;
+    }
+
+    if (get_variable(environment, "libretro_test_fps", &value))
+    {
+        unsigned fps = (unsigned)strtoul(value, NULL, 10);
+        values->fps_answered = true;
+        values->fps = (fps == 50u || fps == 40u || fps == 30u) ? fps : OPTION_FPS_DEFAULT;
     }
 }
 

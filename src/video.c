@@ -68,27 +68,27 @@ const char* video_pixel_format_name(enum retro_pixel_format format)
     }
 }
 
-float video_aspect_ratio(unsigned width)
+float video_aspect_ratio(unsigned width, unsigned height)
 {
-    return (float)width / (float)VIDEO_HEIGHT;
+    return (float)width / (float)height;
 }
 
-bool video_create(Framebuffer* framebuffer, enum retro_pixel_format format, unsigned width)
+bool video_create(Framebuffer* framebuffer, enum retro_pixel_format format, unsigned width, unsigned height)
 {
     struct rawfb_pl layout = pixel_layout(format);
 
     memset(framebuffer, 0, sizeof(*framebuffer));
-    if (width == 0 || width > VIDEO_MAX_WIDTH)
+    if (width == 0 || width > VIDEO_MAX_WIDTH || height == 0 || height > VIDEO_MAX_HEIGHT)
     {
         return false;
     }
     framebuffer->width = width;
-    framebuffer->height = VIDEO_HEIGHT;
+    framebuffer->height = height;
     framebuffer->format = format;
     framebuffer->bytes_per_pixel = layout.bytesPerPixel;
     framebuffer->pitch = (size_t)width * layout.bytesPerPixel + VIDEO_PITCH_PADDING;
 
-    framebuffer->pixels = (uint8_t*)calloc(framebuffer->pitch * VIDEO_HEIGHT, 1);
+    framebuffer->pixels = (uint8_t*)calloc(framebuffer->pitch * height, 1);
     framebuffer->font_scratch = (uint8_t*)calloc(FONT_SCRATCH_SIZE, 1);
     if (framebuffer->pixels == NULL || framebuffer->font_scratch == NULL)
     {
@@ -97,7 +97,7 @@ bool video_create(Framebuffer* framebuffer, enum retro_pixel_format format, unsi
     }
 
     framebuffer->rawfb = nk_rawfb_init(framebuffer->pixels, framebuffer->font_scratch,
-                                       width, VIDEO_HEIGHT, (unsigned)framebuffer->pitch, layout);
+                                       width, height, (unsigned)framebuffer->pitch, layout);
     if (framebuffer->rawfb == NULL)
     {
         video_destroy(framebuffer);

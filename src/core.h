@@ -66,6 +66,8 @@ typedef struct EnvironmentReport
 
     unsigned geometry_changes;        /* SET_GEOMETRY calls made (width option changes) */
     bool     geometry_accepted;       /* answer to the last one */
+    unsigned av_info_changes;         /* SET_SYSTEM_AV_INFO calls made (height / fps option changes) */
+    bool     av_info_accepted;        /* answer to the last one */
 } EnvironmentReport;
 
 typedef struct CoreState
@@ -86,6 +88,9 @@ typedef struct CoreState
     InputState  input;
     AudioState  audio;
     Pages      pages;
+
+    unsigned   max_height;          /* max_height we last reported (load or SET_SYSTEM_AV_INFO) */
+    unsigned   fps;                 /* frame rate we last reported */
 
     SramData   sram;                /* RETRO_MEMORY_SAVE_RAM: the frontend loads/saves this block */
     SramState  sram_state;          /* what it looked like on the first frame */

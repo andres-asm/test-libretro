@@ -277,6 +277,15 @@ static struct nk_rect page_video(CoreState* core, struct nk_context* ctx)
              video_pixel_format_name(core->framebuffer.format), core->framebuffer.width,
              core->framebuffer.height, (unsigned)core->framebuffer.pitch);
     draw_text(ctx, 18, text);
+    snprintf(text, sizeof(text), "Timing: %u fps, %u audio frames per retro_run (48000 Hz).", core->fps,
+             core->audio.frames_per_run);
+    draw_text(ctx, 18, text);
+    if (core->report.av_info_changes > 0)
+    {
+        snprintf(text, sizeof(text), "Height / frame rate changed %u time(s); last SET_SYSTEM_AV_INFO %s.",
+                 core->report.av_info_changes, core->report.av_info_accepted ? "accepted" : "REFUSED");
+        draw_text(ctx, 18, text);
+    }
     if (core->report.geometry_changes > 0)
     {
         snprintf(text, sizeof(text), "Width option changed %u time(s); last SET_GEOMETRY %s. Text must not look squeezed or stretched.",
@@ -381,7 +390,8 @@ static void page_audio(CoreState* core, struct nk_context* ctx)
     nk_labelf(ctx, NK_TEXT_LEFT, "Callback: %s   (D-pad Up)",
               core->audio.use_single_sample_callback ? "retro_audio_sample (one frame at a time)"
                                                      : "retro_audio_sample_batch");
-    nk_labelf(ctx, NK_TEXT_LEFT, "Format: 48000 Hz stereo, %u frames per retro_run", AUDIO_FRAMES_PER_RUN);
+    nk_labelf(ctx, NK_TEXT_LEFT, "Format: 48000 Hz stereo, %u frames per retro_run (%u fps)", core->audio.frames_per_run,
+              core->options.fps);
 }
 
 static void page_sram(CoreState* core, struct nk_context* ctx, bool entered)

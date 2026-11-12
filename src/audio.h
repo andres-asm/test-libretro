@@ -9,7 +9,7 @@
 #include "libretro.h"
 
 #define AUDIO_SAMPLE_RATE     48000.0
-#define AUDIO_FRAMES_PER_RUN  800       /* 48000 / 60 */
+#define AUDIO_MAX_FRAMES_PER_RUN 1600   /* 48000 / 30, the slowest frame rate option */
 #define AUDIO_TONE_HZ         440.0
 
 typedef enum AudioChannels
@@ -27,10 +27,11 @@ typedef struct AudioState
     AudioChannels channels;
     bool          use_single_sample_callback;   /* retro_audio_sample instead of the batch callback */
     double        phase;                         /* 0..1, carried across frames so the tone is continuous */
-    int16_t       buffer[AUDIO_FRAMES_PER_RUN * 2];   /* interleaved stereo for one frame */
+    unsigned      frames_per_run;                /* 48000 / fps (800 at 60 fps); 0 = 800 */
+    int16_t       buffer[AUDIO_MAX_FRAMES_PER_RUN * 2];   /* interleaved stereo for one frame */
 } AudioState;
 
-/* Submits exactly AUDIO_FRAMES_PER_RUN stereo frames (silence when not playing or channels is OFF). */
+/* Submits exactly frames_per_run stereo frames (silence when not playing or channels is OFF). */
 void audio_run_frame(AudioState* audio, retro_audio_sample_t sample, retro_audio_sample_batch_t batch);
 
 const char* audio_channels_name(AudioChannels channels);

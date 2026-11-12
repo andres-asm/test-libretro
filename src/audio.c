@@ -24,8 +24,10 @@ void audio_run_frame(AudioState* audio, retro_audio_sample_t sample, retro_audio
     const double two_pi = 6.283185307179586;
     const double step = AUDIO_TONE_HZ / AUDIO_SAMPLE_RATE;
     unsigned frame = 0;
+    unsigned frames = audio->frames_per_run > 0 && audio->frames_per_run <= AUDIO_MAX_FRAMES_PER_RUN
+                          ? audio->frames_per_run : 800u;
 
-    for (frame = 0; frame < AUDIO_FRAMES_PER_RUN; frame++)
+    for (frame = 0; frame < frames; frame++)
     {
         int16_t value = 0;
         int16_t left = 0;
@@ -56,7 +58,7 @@ void audio_run_frame(AudioState* audio, retro_audio_sample_t sample, retro_audio
 
     if (audio->use_single_sample_callback)
     {
-        for (frame = 0; frame < AUDIO_FRAMES_PER_RUN; frame++)
+        for (frame = 0; frame < frames; frame++)
         {
             sample(buffer[frame * 2], buffer[frame * 2 + 1]);
         }
@@ -65,9 +67,9 @@ void audio_run_frame(AudioState* audio, retro_audio_sample_t sample, retro_audio
     {
         /* The frontend may take fewer frames than offered; keep handing over the rest. */
         size_t done = 0;
-        while (done < AUDIO_FRAMES_PER_RUN)
+        while (done < frames)
         {
-            size_t taken = batch(buffer + done * 2, AUDIO_FRAMES_PER_RUN - done);
+            size_t taken = batch(buffer + done * 2, frames - done);
             if (taken == 0)
             {
                 break;

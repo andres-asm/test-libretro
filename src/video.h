@@ -17,8 +17,8 @@ struct nk_context;
 
 /* Output size. The width can change at runtime (core option libretro_test_width);
  * VIDEO_MAX_WIDTH is what retro_get_system_av_info reports as max_width. */
-#define VIDEO_MAX_WIDTH 720u
-#define VIDEO_HEIGHT    480u
+#define VIDEO_MAX_WIDTH  720u
+#define VIDEO_MAX_HEIGHT 720u
 
 /*
  * Each row is this many bytes LONGER than width * bytes_per_pixel, on purpose:
@@ -40,8 +40,8 @@ typedef struct Framebuffer
     uint8_t*                font_scratch;    /* memory rawfb bakes its font into */
 } Framebuffer;
 
-/* width must be 1..VIDEO_MAX_WIDTH. */
-bool video_create(Framebuffer* framebuffer, enum retro_pixel_format format, unsigned width);
+/* width 1..VIDEO_MAX_WIDTH, height 1..VIDEO_MAX_HEIGHT. */
+bool video_create(Framebuffer* framebuffer, enum retro_pixel_format format, unsigned width, unsigned height);
 void video_destroy(Framebuffer* framebuffer);
 
 struct nk_context* video_ui_context(Framebuffer* framebuffer);
@@ -58,7 +58,7 @@ void video_fill_rect(Framebuffer* framebuffer, int x, int y, int width, int heig
  * width / height: 4:3 at 640x480, 3:2 at 720x480. Reporting anything else
  * would make the frontend squeeze or stretch the text.
  */
-float video_aspect_ratio(unsigned width);
+float video_aspect_ratio(unsigned width, unsigned height);
 
 const char* video_pixel_format_name(enum retro_pixel_format format);
 

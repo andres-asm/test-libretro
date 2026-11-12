@@ -20,6 +20,8 @@
 
 #define OPTION_WIDTH_DEFAULT 640u
 #define OPTION_WIDTH_WIDE    720u
+#define OPTION_HEIGHT_DEFAULT 480u   /* also 600, 720 */
+#define OPTION_FPS_DEFAULT    60u    /* also 50, 40, 30 */
 
 typedef struct OptionsReport
 {
@@ -36,6 +38,10 @@ typedef struct OptionValues
     char     pixel_format[32];     /* "XRGB8888", "RGB565" or "0RGB1555" */
     bool     width_answered;
     unsigned width;                /* OPTION_WIDTH_DEFAULT or OPTION_WIDTH_WIDE */
+    bool     height_answered;
+    unsigned height;               /* 480, 600 or 720 */
+    bool     fps_answered;
+    unsigned fps;                  /* 60, 50, 40 or 30 */
 } OptionValues;
 
 /* Called from retro_set_environment. */
