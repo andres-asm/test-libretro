@@ -1,6 +1,7 @@
 #include "pages.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include "core.h"
 #include "nuklear_config.h"
@@ -26,6 +27,7 @@ const char* pages_title(PageId page)
         case PAGE_VIDEO:       return "Video";
         case PAGE_INPUT:       return "Input";
         case PAGE_AUDIO:       return "Audio";
+        case PAGE_SRAM:        return "Save RAM";
         case PAGE_SAVESTATE:   return "Savestates";
         case PAGE_SUMMARY:     return "Summary";
         default:               return "?";
@@ -382,6 +384,52 @@ static void page_audio(CoreState* core, struct nk_context* ctx)
     nk_labelf(ctx, NK_TEXT_LEFT, "Format: 48000 Hz stereo, %u frames per retro_run", AUDIO_FRAMES_PER_RUN);
 }
 
+static void page_sram(CoreState* core, struct nk_context* ctx, bool entered)
+{
+    char before[SRAM_TEXT_SIZE];
+    char text[SRAM_TEXT_SIZE + 64];
+    struct nk_color color = color_info();
+
+    draw_text(ctx, 50, "Type a short text below (in the test frontend: turn on game focus with Scroll Lock or F12 first). "
+                       "Then quit, start the core again and come back here: the frontend must have saved this "
+                       "save RAM and loaded it back before the first frame.");
+
+    switch (core->sram_state)
+    {
+        case SRAM_RESTORED:
+            snprintf(text, sizeof(text), "restored, checksum OK: \"%s\"", core->sram.text);
+            color = color_good();
+            break;
+        case SRAM_CORRUPTED:
+            snprintf(text, sizeof(text), "CORRUPTED: wrong magic, length or checksum");
+            color = color_bad();
+            break;
+        default:
+            snprintf(text, sizeof(text), "empty (first run, or the frontend didn't load it)");
+            break;
+    }
+    draw_row(ctx, "Save RAM at load", text, color);
+    draw_row(ctx, "SET_KEYBOARD_CALLBACK", core->report.keyboard_callback_accepted ? "accepted" : "refused (can't type)",
+             core->report.keyboard_callback_accepted ? color_good() : color_bad());
+    if (core->keys_dropped > 0)
+    {
+        snprintf(text, sizeof(text), "%u key events dropped (queue full)", core->keys_dropped);
+        draw_row(ctx, "Keyboard", text, color_bad());
+    }
+
+    nk_layout_row_dynamic(ctx, 26, 1);
+    if (entered)
+    {
+        nk_edit_focus(ctx, NK_EDIT_FIELD);   /* ready to type without clicking first */
+    }
+    memcpy(before, core->sram.text, sizeof(before));
+    nk_edit_string_zero_terminated(ctx, NK_EDIT_FIELD, core->sram.text, SRAM_TEXT_SIZE, nk_filter_ascii);
+    if (memcmp(before, core->sram.text, sizeof(before)) != 0)
+    {
+        sram_seal(&core->sram);   /* the save RAM is valid as soon as anything was typed */
+    }
+}
+
 static void page_savestate(CoreState* core, struct nk_context* ctx)
 {
     draw_text(ctx, 50, "Save a state, wait a few seconds, then load it. The frame counter must jump back "
@@ -419,16 +467,50 @@ static void page_summary(CoreState* core, struct nk_context* ctx)
  * Frame
  * ------------------------------------------------------------------------- */
 
+/* Key events queued by the keyboard callback -> Nuklear. Typed characters
+   (printable ASCII: the font has nothing else) and the editing keys. */
+static void feed_keyboard(CoreState* core, struct nk_context* ctx)
+{
+    unsigned i = 0;
+
+    for (i = 0; i < core->key_queue_count; i++)
+    {
+        const KeyEvent* event = &core->key_queue[i];
+        int down = event->down ? nk_true : nk_false;
+
+        if (event->down && event->character >= 32 && event->character < 127)
+        {
+            nk_input_unicode(ctx, (nk_rune)event->character);
+        }
+        switch (event->keycode)
+        {
+            case RETROK_BACKSPACE: nk_input_key(ctx, NK_KEY_BACKSPACE, down); break;
+            case RETROK_DELETE:    nk_input_key(ctx, NK_KEY_DEL, down); break;
+            case RETROK_LEFT:      nk_input_key(ctx, NK_KEY_LEFT, down); break;
+            case RETROK_RIGHT:     nk_input_key(ctx, NK_KEY_RIGHT, down); break;
+            case RETROK_HOME:      nk_input_key(ctx, NK_KEY_TEXT_LINE_START, down); break;
+            case RETROK_END:       nk_input_key(ctx, NK_KEY_TEXT_LINE_END, down); break;
+            case RETROK_RETURN:    nk_input_key(ctx, NK_KEY_ENTER, down); break;
+            default:               break;
+        }
+    }
+    core->key_queue_count = 0;
+}
+
 void pages_run_frame(CoreState* core)
 {
     Pages* pages = &core->pages;
     struct nk_context* ctx = video_ui_context(&core->framebuffer);
     struct nk_rect pattern_area = nk_rect(0, 0, 0, 0);
     bool draw_pattern = false;
+    bool entered = false;
     char title[64];
 
     handle_controller(core);
     core->audio.playing = (pages->page == PAGE_AUDIO);
+    entered = !pages->drawn_once || pages->page != pages->last_drawn_page;
+    pages->last_drawn_page = pages->page;
+    pages->drawn_once = true;
 
     nk_input_begin(ctx);
     if (core->input.pointer_valid)
@@ -437,6 +519,7 @@ void pages_run_frame(CoreState* core)
         nk_input_button(ctx, NK_BUTTON_LEFT, core->input.pointer_x, core->input.pointer_y,
                         core->input.pointer_pressed ? nk_true : nk_false);
     }
+    feed_keyboard(core, ctx);
     nk_input_end(ctx);
 
     snprintf(title, sizeof(title), "Test %d/%d: %s", (int)pages->page + 1, (int)PAGE_COUNT, pages_title(pages->page));
@@ -452,6 +535,7 @@ void pages_run_frame(CoreState* core)
             case PAGE_VIDEO:       pattern_area = page_video(core, ctx); draw_pattern = true; break;
             case PAGE_INPUT:       page_input(core, ctx); break;
             case PAGE_AUDIO:       page_audio(core, ctx); break;
+            case PAGE_SRAM:        page_sram(core, ctx, entered); break;
             case PAGE_SAVESTATE:   page_savestate(core, ctx); break;
             case PAGE_SUMMARY:     page_summary(core, ctx); break;
             default:               break;

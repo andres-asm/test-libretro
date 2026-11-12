@@ -16,10 +16,22 @@
 #include "input.h"
 #include "libretro.h"
 #include "options.h"
+#include "sram.h"
 #include "video.h"
 #include "pages.h"
 
 #define TEXT_FIELD_SIZE 256
+
+/* Key events from the frontend's keyboard callback, kept until the next frame
+   hands them to Nuklear (the callback may come between frames). */
+#define KEY_QUEUE_SIZE 64
+
+typedef struct KeyEvent
+{
+    bool     down;
+    unsigned keycode;      /* RETROK_* (RETROK_UNKNOWN for typed text) */
+    uint32_t character;    /* UTF-32, 0 if none */
+} KeyEvent;
 
 /* What the frontend answered to the environment calls we make. Shown on the first page. */
 typedef struct EnvironmentReport
@@ -47,6 +59,7 @@ typedef struct EnvironmentReport
     unsigned language;
 
     bool input_bitmasks;              /* GET_INPUT_BITMASKS (called with NULL data, as the API specifies) */
+    bool keyboard_callback_accepted;  /* SET_KEYBOARD_CALLBACK */
 
     bool audio_video_enable_answered;
     int  audio_video_enable;
@@ -73,6 +86,13 @@ typedef struct CoreState
     InputState  input;
     AudioState  audio;
     Pages      pages;
+
+    SramData   sram;                /* RETRO_MEMORY_SAVE_RAM: the frontend loads/saves this block */
+    SramState  sram_state;          /* what it looked like on the first frame */
+
+    KeyEvent   key_queue[KEY_QUEUE_SIZE];
+    unsigned   key_queue_count;
+    unsigned   keys_dropped;        /* queue was full */
 
     uint64_t frame_count;          /* saved in savestates */
     unsigned load_state_count;     /* successful retro_unserialize calls */

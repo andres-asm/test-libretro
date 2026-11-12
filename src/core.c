@@ -155,6 +155,25 @@ void retro_get_system_info(struct retro_system_info* info)
     info->block_extract    = false;
 }
 
+/* The frontend's key events (typing on the SRAM page). Only queued here:
+   Nuklear gets them at the start of the next frame. */
+static void RETRO_CALLCONV keyboard_event(bool down, unsigned keycode, uint32_t character, uint16_t key_modifiers)
+{
+    KeyEvent* event = NULL;
+    (void)key_modifiers;
+
+    if (g_core.key_queue_count >= KEY_QUEUE_SIZE)
+    {
+        g_core.keys_dropped++;
+        return;
+    }
+    event = &g_core.key_queue[g_core.key_queue_count];
+    event->down = down;
+    event->keycode = keycode;
+    event->character = character;
+    g_core.key_queue_count++;
+}
+
 void retro_init(void)
 {
     EnvironmentReport* report = &g_core.report;
@@ -178,6 +197,12 @@ void retro_init(void)
     flag = false;
     report->can_dupe_answered = g_core.environment(RETRO_ENVIRONMENT_GET_CAN_DUPE, &flag);
     report->can_dupe = flag;
+
+    {
+        struct retro_keyboard_callback keyboard;
+        keyboard.callback = keyboard_event;
+        report->keyboard_callback_accepted = g_core.environment(RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK, &keyboard);
+    }
 
     /* Specified with NULL data: the return value IS the answer. */
     report->input_bitmasks = g_core.environment(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL);
@@ -205,6 +230,10 @@ bool retro_load_game(const struct retro_game_info* game)
 
     options_read(g_core.environment, &g_core.options);
     format = choose_pixel_format();
+
+    /* Zero until the frontend loads the saved block (after this function returns). */
+    memset(&g_core.sram, 0, sizeof(g_core.sram));
+    g_core.sram_state = SRAM_NOT_CHECKED;
 
     report->audio_video_enable_answered =
         g_core.environment(RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE, &report->audio_video_enable);
@@ -313,6 +342,16 @@ void retro_run(void)
         return;
     }
 
+    /* First frame: the frontend had its chance to load save RAM. */
+    if (g_core.sram_state == SRAM_NOT_CHECKED)
+    {
+        g_core.sram_state = sram_check(&g_core.sram);
+        core_log(&g_core, g_core.sram_state == SRAM_CORRUPTED ? RETRO_LOG_ERROR : RETRO_LOG_INFO,
+                 "save RAM: %s%s%s\n", sram_state_name(g_core.sram_state),
+                 g_core.sram_state == SRAM_RESTORED ? ", text: " : "",
+                 g_core.sram_state == SRAM_RESTORED ? g_core.sram.text : "");
+    }
+
     g_core.frame_count++;
 
     input_update(&g_core.input, g_core.input_poll, g_core.input_state,
@@ -404,12 +443,10 @@ unsigned retro_get_region(void)
 
 void* retro_get_memory_data(unsigned id)
 {
-    (void)id;
-    return NULL;
+    return id == RETRO_MEMORY_SAVE_RAM ? &g_core.sram : NULL;
 }
 
 size_t retro_get_memory_size(unsigned id)
 {
-    (void)id;
-    return 0;
+    return id == RETRO_MEMORY_SAVE_RAM ? sizeof(g_core.sram) : 0;
 }

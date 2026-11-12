@@ -19,6 +19,7 @@ typedef enum PageId
     PAGE_VIDEO,
     PAGE_INPUT,
     PAGE_AUDIO,
+    PAGE_SRAM,
     PAGE_SAVESTATE,
     PAGE_SUMMARY,
     PAGE_COUNT
@@ -38,6 +39,8 @@ typedef struct Pages
     bool       waiting_for_release;   /* after a hold triggered: ignore Start/Select until both are released */
     bool       summary_logged;
     bool       shutdown_requested;
+    PageId     last_drawn_page;       /* to notice entering a page (focus its text field) */
+    bool       drawn_once;
 } Pages;
 
 struct CoreState;
