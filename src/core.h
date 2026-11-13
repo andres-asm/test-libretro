@@ -113,7 +113,7 @@ typedef struct CoreState
     } states;
 } CoreState;
 
-/* Logs through the frontend's log interface (or stderr when there is none), prefixed "[libretro test] ". */
+/* Logs through the frontend's log interface (or stderr when there is none), prefixed "[Test libretro] ". */
 #if defined(__GNUC__)
 void core_log(CoreState* core, enum retro_log_level level, const char* format, ...) __attribute__((format(printf, 3, 4)));
 #else

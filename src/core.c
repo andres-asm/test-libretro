@@ -1,5 +1,5 @@
 /*
- * libretro entry points of the libretro test core.
+ * libretro entry points of the Test libretro core.
  *
  * Order the frontend calls us in (libretro.h):
  *   retro_set_environment -> retro_get_system_info -> retro_init
@@ -49,11 +49,11 @@ void core_log(CoreState* core, enum retro_log_level level, const char* format, .
 
     if (core->log != NULL)
     {
-        core->log(level, "[libretro test] %s", message);
+        core->log(level, "[Test libretro] %s", message);
     }
     else
     {
-        fprintf(stderr, "[libretro test] %s", message);
+        fprintf(stderr, "[Test libretro] %s", message);
     }
 }
 
@@ -154,7 +154,7 @@ unsigned retro_api_version(void)
 void retro_get_system_info(struct retro_system_info* info)
 {
     memset(info, 0, sizeof(*info));
-    info->library_name     = "libretro test";
+    info->library_name     = "Test libretro";
     info->library_version  = "0.1";
     info->valid_extensions = "";
     info->need_fullpath    = false;
@@ -467,7 +467,7 @@ bool retro_unserialize(const void* data, size_t size)
     memcpy(&state, data, sizeof(state));
     if (state.magic != SAVESTATE_MAGIC || state.version != SAVESTATE_VERSION)
     {
-        core_log(&g_core, RETRO_LOG_WARN, "not a libretro test state (or an older version)\n");
+        core_log(&g_core, RETRO_LOG_WARN, "not a Test libretro state (or an older version)\n");
         return false;
     }
     /* Never trust a file: reject values this core couldn't have written. */
