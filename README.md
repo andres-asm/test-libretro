@@ -1,4 +1,4 @@
-# libretro test
+# Test libretro
 
 A libretro core for testing libretro **frontends**. Instead of emulating a
 system, it walks you through a series of test pages, next, next, next, and
