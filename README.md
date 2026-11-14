@@ -23,8 +23,8 @@ can run a software-rendered core.
 3. **Input**: every joypad button and both analog sticks of controller 1, live,
    plus the pointer. Checks that bitmask reads match per-button reads.
 4. **Audio**: 440 Hz tone, left / right / both, through either the batch or the
-   single-sample callback. Starts with channels **off**: pick a channel with
-   D-pad Left/Right.
+   single-sample callback, at the sample rate option (32000 / 44100 / 48000 /
+   96000 Hz). Starts with channels **off**: pick a channel with D-pad Left/Right.
 5. **Save RAM**: a text field stored in the core's save RAM
    (`RETRO_MEMORY_SAVE_RAM`, 60 bytes: magic, text, checksum). Type something,
    quit, start the core again: the page shows whether the frontend restored it
@@ -57,7 +57,8 @@ Every result is also written to the frontend's log.
 | `libretro_test_pixel_format` | `XRGB8888` (default), `RGB565`, `0RGB1555` | When the core is loaded again |
 | `libretro_test_width` | `640` (default), `720` | Right away, with `SET_GEOMETRY` (fits the reported maximum size) |
 | `libretro_test_height` | `480` (default), `600`, `720` | Right away, with `SET_SYSTEM_AV_INFO`: the core reports only the current height as its maximum, so a taller image needs a new maximum |
-| `libretro_test_fps` | `60` (default), `50`, `40`, `30` | Right away, with `SET_SYSTEM_AV_INFO`. Audio stays 48000 Hz, so each frame carries 48000 / fps samples (800 / 960 / 1200 / 1600) |
+| `libretro_test_fps` | `60` (default), `50`, `40`, `30` | Right away, with `SET_SYSTEM_AV_INFO`. Each frame carries sample rate / fps audio frames (800 / 960 / 1200 / 1600 at 48000 Hz) |
+| `libretro_test_sample_rate` | `48000` (default), `44100`, `32000`, `96000` | Right away, with `SET_SYSTEM_AV_INFO`. Below and above the usual 48000 Hz device, so the frontend resamples both ways. Rates that don't divide by the frame rate (32000 / 60) give frames of 533 and 534 audio frames, adding up exactly each second |
 
 The image always has square pixels, so the reported aspect ratio is width /
 height (4:3 at 640x480, 3:2 at 720x480, and so on): a frontend that stretches

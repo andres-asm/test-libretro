@@ -10,6 +10,7 @@
 
 static struct retro_core_option_v2_category CATEGORIES[] = {
     { "video", "Video", "How the test pictures are produced." },
+    { "audio", "Audio", "How the test tone is produced." },
     { NULL, NULL, NULL },
 };
 
@@ -65,7 +66,7 @@ static struct retro_core_option_v2_definition DEFINITIONS[] = {
         "Video > Frame rate (SET_SYSTEM_AV_INFO)",
         "Frame rate (SET_SYSTEM_AV_INFO)",
         "Frames per second the core runs at, sent with SET_SYSTEM_AV_INFO. The frontend must run "
-        "the core at this speed: audio stays 48000 Hz, so each frame carries 48000 / fps samples.",
+        "the core at this speed: each frame carries sample rate / fps audio frames.",
         NULL,
         "video",
         {
@@ -76,6 +77,24 @@ static struct retro_core_option_v2_definition DEFINITIONS[] = {
             { NULL, NULL },
         },
         "60",
+    },
+    {
+        "libretro_test_sample_rate",
+        "Audio > Sample rate (SET_SYSTEM_AV_INFO)",
+        "Sample rate (SET_SYSTEM_AV_INFO)",
+        "The tone's sample rate, sent with SET_SYSTEM_AV_INFO. Lower and higher than the usual "
+        "48000 Hz device, so the frontend's resampler works both ways. The tone must stay a clean "
+        "440 Hz at every rate.",
+        NULL,
+        "audio",
+        {
+            { "48000", "48000 Hz" },
+            { "44100", "44100 Hz" },
+            { "32000", "32000 Hz" },
+            { "96000", "96000 Hz" },
+            { NULL, NULL },
+        },
+        "48000",
     },
     { NULL, NULL, NULL, NULL, NULL, NULL, { { NULL, NULL } }, NULL },
 };
@@ -199,6 +218,7 @@ void options_read(retro_environment_t environment, OptionValues* values)
     values->width = OPTION_WIDTH_DEFAULT;
     values->height = OPTION_HEIGHT_DEFAULT;
     values->fps = OPTION_FPS_DEFAULT;
+    values->sample_rate = OPTION_SAMPLE_RATE_DEFAULT;
 
     if (get_variable(environment, "libretro_test_pixel_format", &value))
     {
@@ -224,6 +244,13 @@ void options_read(retro_environment_t environment, OptionValues* values)
         unsigned fps = (unsigned)strtoul(value, NULL, 10);
         values->fps_answered = true;
         values->fps = (fps == 50u || fps == 40u || fps == 30u) ? fps : OPTION_FPS_DEFAULT;
+    }
+
+    if (get_variable(environment, "libretro_test_sample_rate", &value))
+    {
+        unsigned rate = (unsigned)strtoul(value, NULL, 10);
+        values->sample_rate_answered = true;
+        values->sample_rate = (rate == 44100u || rate == 32000u || rate == 96000u) ? rate : OPTION_SAMPLE_RATE_DEFAULT;
     }
 }
 

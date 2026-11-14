@@ -17,15 +17,40 @@ const char* audio_channels_name(AudioChannels channels)
     }
 }
 
+static unsigned rate_of(const AudioState* audio)
+{
+    return audio->sample_rate > 0 ? audio->sample_rate : AUDIO_SAMPLE_RATE_DEFAULT;
+}
+
+void audio_set_timing(AudioState* audio, unsigned sample_rate, unsigned fps)
+{
+    audio->sample_rate = sample_rate;
+    audio->fps = fps;
+    audio->frames_owed = 0.0;
+}
+
+double audio_frames_per_run(const AudioState* audio)
+{
+    return (double)rate_of(audio) / (double)(audio->fps > 0 ? audio->fps : 60u);
+}
+
 void audio_run_frame(AudioState* audio, retro_audio_sample_t sample, retro_audio_sample_batch_t batch)
 {
     int16_t* buffer = audio->buffer;
     bool tone = audio->playing && audio->channels != AUDIO_CHANNELS_OFF;
     const double two_pi = 6.283185307179586;
-    const double step = AUDIO_TONE_HZ / AUDIO_SAMPLE_RATE;
+    const double step = AUDIO_TONE_HZ / (double)rate_of(audio);
     unsigned frame = 0;
-    unsigned frames = audio->frames_per_run > 0 && audio->frames_per_run <= AUDIO_MAX_FRAMES_PER_RUN
-                          ? audio->frames_per_run : 800u;
+    unsigned frames = 0;
+
+    /* Whole frames now, the fraction next time. */
+    audio->frames_owed += audio_frames_per_run(audio);
+    frames = (unsigned)audio->frames_owed;
+    audio->frames_owed -= (double)frames;
+    if (frames > AUDIO_MAX_FRAMES_PER_RUN)
+    {
+        frames = AUDIO_MAX_FRAMES_PER_RUN;
+    }
 
     for (frame = 0; frame < frames; frame++)
     {

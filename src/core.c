@@ -246,7 +246,7 @@ bool retro_load_game(const struct retro_game_info* game)
 
     g_core.fps = g_core.options.fps;
     g_core.max_height = g_core.options.height;
-    g_core.audio.frames_per_run = (unsigned)(AUDIO_SAMPLE_RATE / (double)g_core.fps);
+    audio_set_timing(&g_core.audio, g_core.options.sample_rate, g_core.fps);
     if (!video_create(&g_core.framebuffer, format, g_core.options.width, g_core.options.height))
     {
         core_log(&g_core, RETRO_LOG_ERROR, "could not create the framebuffer\n");
@@ -287,7 +287,8 @@ void retro_get_system_av_info(struct retro_system_av_info* info)
     info->geometry.max_height   = g_core.max_height > 0 ? g_core.max_height : OPTION_HEIGHT_DEFAULT;
     info->geometry.aspect_ratio = video_aspect_ratio(info->geometry.base_width, info->geometry.base_height);
     info->timing.fps            = g_core.fps > 0 ? (double)g_core.fps : (double)OPTION_FPS_DEFAULT;
-    info->timing.sample_rate    = AUDIO_SAMPLE_RATE;
+    info->timing.sample_rate    = (double)(g_core.audio.sample_rate > 0 ? g_core.audio.sample_rate
+                                                                        : AUDIO_SAMPLE_RATE_DEFAULT);
 }
 
 /* ---------------------------------------------------------------------------
@@ -328,6 +329,7 @@ static void apply_option_changes(void)
     unsigned old_width = g_core.framebuffer.width;
     unsigned old_height = g_core.framebuffer.height;
     unsigned old_fps = g_core.fps;
+    unsigned old_rate = g_core.audio.sample_rate;
 
     if (!options_changed(g_core.environment))
     {
@@ -341,18 +343,20 @@ static void apply_option_changes(void)
         return;
     }
 
-    if (g_core.options.height != old_height || g_core.options.fps != old_fps)
+    if (g_core.options.height != old_height || g_core.options.fps != old_fps ||
+        g_core.options.sample_rate != old_rate)
     {
         struct retro_system_av_info info;
 
         g_core.max_height = g_core.framebuffer.height;
         g_core.fps = g_core.options.fps;
-        g_core.audio.frames_per_run = (unsigned)(AUDIO_SAMPLE_RATE / (double)g_core.fps);
+        audio_set_timing(&g_core.audio, g_core.options.sample_rate, g_core.fps);
         retro_get_system_av_info(&info);
         g_core.report.av_info_changes++;
         g_core.report.av_info_accepted = g_core.environment(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &info);
-        core_log(&g_core, RETRO_LOG_INFO, "%ux%u @ %u fps -> %ux%u @ %u fps, SET_SYSTEM_AV_INFO %s\n", old_width,
-                 old_height, old_fps, g_core.framebuffer.width, g_core.framebuffer.height, g_core.fps,
+        core_log(&g_core, RETRO_LOG_INFO, "%ux%u @ %u fps, %u Hz -> %ux%u @ %u fps, %u Hz, SET_SYSTEM_AV_INFO %s\n",
+                 old_width, old_height, old_fps, old_rate, g_core.framebuffer.width, g_core.framebuffer.height,
+                 g_core.fps, g_core.audio.sample_rate,
                  g_core.report.av_info_accepted ? "accepted" : "refused");
         return;
     }

@@ -277,8 +277,8 @@ static struct nk_rect page_video(CoreState* core, struct nk_context* ctx)
              video_pixel_format_name(core->framebuffer.format), core->framebuffer.width,
              core->framebuffer.height, (unsigned)core->framebuffer.pitch);
     draw_text(ctx, 18, text);
-    snprintf(text, sizeof(text), "Timing: %u fps, %u audio frames per retro_run (48000 Hz).", core->fps,
-             core->audio.frames_per_run);
+    snprintf(text, sizeof(text), "Timing: %u fps, %.1f audio frames per retro_run (%u Hz).", core->fps,
+             audio_frames_per_run(&core->audio), core->audio.sample_rate);
     draw_text(ctx, 18, text);
     if (core->report.av_info_changes > 0)
     {
@@ -390,8 +390,9 @@ static void page_audio(CoreState* core, struct nk_context* ctx)
     nk_labelf(ctx, NK_TEXT_LEFT, "Callback: %s   (D-pad Up)",
               core->audio.use_single_sample_callback ? "retro_audio_sample (one frame at a time)"
                                                      : "retro_audio_sample_batch");
-    nk_labelf(ctx, NK_TEXT_LEFT, "Format: 48000 Hz stereo, %u frames per retro_run (%u fps)", core->audio.frames_per_run,
-              core->options.fps);
+    nk_labelf(ctx, NK_TEXT_LEFT, "Format: %u Hz stereo, %.1f frames per retro_run (%u fps)", core->audio.sample_rate,
+              audio_frames_per_run(&core->audio), core->fps);
+    nk_labelf(ctx, NK_TEXT_LEFT, "Sample rate: core option Audio > Sample rate (32000 / 44100 / 48000 / 96000)");
 }
 
 static void page_sram(CoreState* core, struct nk_context* ctx, bool entered)

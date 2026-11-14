@@ -22,6 +22,7 @@
 #define OPTION_WIDTH_WIDE    720u
 #define OPTION_HEIGHT_DEFAULT 480u   /* also 600, 720 */
 #define OPTION_FPS_DEFAULT    60u    /* also 50, 40, 30 */
+#define OPTION_SAMPLE_RATE_DEFAULT 48000u   /* also 44100, 32000, 96000 */
 
 typedef struct OptionsReport
 {
@@ -42,6 +43,8 @@ typedef struct OptionValues
     unsigned height;               /* 480, 600 or 720 */
     bool     fps_answered;
     unsigned fps;                  /* 60, 50, 40 or 30 */
+    bool     sample_rate_answered;
+    unsigned sample_rate;          /* 48000, 44100, 32000 or 96000 */
 } OptionValues;
 
 /* Called from retro_set_environment. */
