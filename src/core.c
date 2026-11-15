@@ -155,7 +155,7 @@ void retro_get_system_info(struct retro_system_info* info)
 {
     memset(info, 0, sizeof(*info));
     info->library_name     = "Test libretro";
-    info->library_version  = "0.1";
+    info->library_version  = TEST_LIBRETRO_VERSION; /* from CMake */
     info->valid_extensions = "";
     info->need_fullpath    = false;
     info->block_extract    = false;

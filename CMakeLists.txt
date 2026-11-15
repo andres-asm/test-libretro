@@ -55,6 +55,34 @@ target_include_directories(test_libretro SYSTEM PRIVATE
 )
 target_include_directories(test_libretro PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+# The core's version, reported as library_version: the base on main (or
+# master), base-<branch> on any other branch, base-<commit> when detached, the
+# base alone without git. CMake configures again when the branch changes.
+set(TEST_LIBRETRO_VERSION_BASE 0.5)
+set(TEST_LIBRETRO_VERSION "${TEST_LIBRETRO_VERSION_BASE}")
+find_package(Git QUIET)
+if(GIT_FOUND)
+    execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}" rev-parse --abbrev-ref HEAD
+                    OUTPUT_VARIABLE _branch OUTPUT_STRIP_TRAILING_WHITESPACE
+                    RESULT_VARIABLE _result ERROR_QUIET)
+    if(_result EQUAL 0 AND _branch)
+        if(_branch STREQUAL "HEAD")
+            execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}" rev-parse --short HEAD
+                            OUTPUT_VARIABLE _branch OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        endif()
+        if(NOT _branch STREQUAL "main" AND NOT _branch STREQUAL "master")
+            set(TEST_LIBRETRO_VERSION "${TEST_LIBRETRO_VERSION_BASE}-${_branch}")
+        endif()
+        execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}" rev-parse --path-format=absolute --git-path HEAD
+                        OUTPUT_VARIABLE _head_file OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+        if(_head_file AND EXISTS "${_head_file}")
+            set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_head_file}")
+        endif()
+    endif()
+endif()
+target_compile_definitions(test_libretro PRIVATE TEST_LIBRETRO_VERSION="${TEST_LIBRETRO_VERSION}")
+message(STATUS "Test libretro ${TEST_LIBRETRO_VERSION}")
+
 find_library(MATH_LIBRARY m)
 if(MATH_LIBRARY)
     target_link_libraries(test_libretro PRIVATE ${MATH_LIBRARY})
