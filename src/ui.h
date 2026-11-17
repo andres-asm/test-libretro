@@ -21,6 +21,8 @@ extern "C" {
 
 struct Ui;
 
+#define UI_FONT_SIZE 8.0f   /* the pixel font at 1x: crisp only at whole multiples of 8 */
+
 /* What the UI gets from the frontend each frame. */
 typedef struct UiInput
 {

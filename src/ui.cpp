@@ -128,7 +128,7 @@ void ui_begin_frame(struct Ui* ui, const Framebuffer* framebuffer, const UiInput
     }
     feed_keys(io, input);
     ImGui::NewFrame();
-    ImGui::PushFont(ui->font, PIXEL_FONT_IMGUI_UNIT);
+    ImGui::PushFont(ui->font, UI_FONT_SIZE);
 }
 
 void ui_end_frame(struct Ui* ui, Framebuffer* framebuffer)

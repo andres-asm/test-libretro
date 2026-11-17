@@ -186,15 +186,20 @@ static void handle_controller(CoreState* core)
  * Shared UI pieces
  * ------------------------------------------------------------------------- */
 
-/* Name on the left, its value in a second column (wrapped if it is long). */
-static void draw_row(const char* name, const char* value, ImVec4 color)
+/* Name on the left, its value in a second column at `share` of the width (wrapped if it is long). */
+static void draw_row_at(float share, const char* name, const char* value, ImVec4 color)
 {
-    float column = ImGui::GetWindowContentRegionMax().x * 0.42f;
+    float column = ImGui::GetWindowContentRegionMax().x * share;
     ImGui::TextUnformatted(name);
     ImGui::SameLine(column);
     ImGui::PushStyleColor(ImGuiCol_Text, color);
     ImGui::TextWrapped("%s", value);
     ImGui::PopStyleColor();
+}
+
+static void draw_row(const char* name, const char* value, ImVec4 color)
+{
+    draw_row_at(0.42f, name, value, color);
 }
 
 static void draw_text(const char* text)
@@ -298,6 +303,7 @@ static const char* yes_no(bool value)
     return value ? "yes" : "no";
 }
 
+/* Callbacks has the most rows: two columns. */
 static void page_callbacks(CoreState* core)
 {
     const EnvironmentReport* report = &core->report;
@@ -305,45 +311,50 @@ static void page_callbacks(CoreState* core)
 
     draw_text("What the frontend answered to this core's environment calls. "
               "Red = against the libretro spec. Grey = optional, informational.");
+    ImGui::Spacing();
+    float half = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+    ImGuiWindowFlags still = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
 
-    draw_row("GET_LOG_INTERFACE", yes_no(report->log_interface), report->log_interface ? color_good() : color_info());
-    draw_row("SET_SUPPORT_NO_GAME", report->support_no_game_accepted ? "accepted" : "refused",
+    /* Left: logging, content, pixel formats, core options. */
+    ImGui::BeginChild("left", ImVec2(half, 0.0f), ImGuiChildFlags_None, still);
+    draw_row_at(0.5f, "GET_LOG_INTERFACE", yes_no(report->log_interface), report->log_interface ? color_good() : color_info());
+    draw_row_at(0.5f, "SET_SUPPORT_NO_GAME", report->support_no_game_accepted ? "accepted" : "refused",
              report->support_no_game_accepted ? color_good() : color_bad());
-
-    draw_row("Pixel format 0RGB1555", report->format_0rgb1555_accepted ? "accepted" : "REFUSED (must be accepted)",
+    draw_row_at(0.5f, "0RGB1555", report->format_0rgb1555_accepted ? "accepted" : "REFUSED (must be accepted)",
              report->format_0rgb1555_accepted ? color_good() : color_bad());
-    draw_row("Pixel format RGB565", report->format_rgb565_accepted ? "accepted" : "refused",
+    draw_row_at(0.5f, "RGB565", report->format_rgb565_accepted ? "accepted" : "refused",
              report->format_rgb565_accepted ? color_good() : color_info());
-    draw_row("Pixel format XRGB8888", report->format_xrgb8888_accepted ? "accepted" : "refused",
+    draw_row_at(0.5f, "XRGB8888", report->format_xrgb8888_accepted ? "accepted" : "refused",
              report->format_xrgb8888_accepted ? color_good() : color_info());
-    draw_row("Pixel format in use", video_pixel_format_name(core->framebuffer.format), color_info());
-
+    draw_row_at(0.5f, "Pixel format in use", video_pixel_format_name(core->framebuffer.format), color_info());
     std::snprintf(text, sizeof(text), "%u", report->options.version);
-    draw_row("GET_CORE_OPTIONS_VERSION", report->options.version_answered ? text : "no answer (0 assumed)", color_info());
+    draw_row_at(0.5f, "GET_CORE_OPTIONS_VERSION", report->options.version_answered ? text : "no answer (0 assumed)", color_info());
     std::snprintf(text, sizeof(text), "%s: %s",
                   report->options.api_used == 2 ? "SET_CORE_OPTIONS_V2" :
                   report->options.api_used == 1 ? "SET_CORE_OPTIONS (v1)" : "SET_VARIABLES (v0)",
                   report->options.accepted ? "accepted" : "REFUSED");
     /* A frontend that reports a version must accept that version's call. */
-    draw_row("Core options sent as", text,
+    draw_row_at(0.5f, "Core options sent as", text,
              report->options.accepted ? color_good() : (report->options.version_answered ? color_bad() : color_info()));
-    draw_row("  libretro_test_pixel_format",
+    draw_row_at(0.5f, "  pixel_format",
              core->options.pixel_format_answered ? core->options.pixel_format : "no answer (default used)", color_info());
     std::snprintf(text, sizeof(text), "%u", core->options.width);
-    draw_row("  libretro_test_width", core->options.width_answered ? text : "no answer (640 used)", color_info());
+    draw_row_at(0.5f, "  width", core->options.width_answered ? text : "no answer (640 used)", color_info());
+    ImGui::EndChild();
 
-    draw_row("GET_CAN_DUPE", report->can_dupe_answered ? yes_no(report->can_dupe) : "no answer", color_info());
-    draw_row("GET_INPUT_BITMASKS", yes_no(report->input_bitmasks), color_info());
-
+    /* Right: the frontend itself, its directories. */
+    ImGui::SameLine();
+    ImGui::BeginChild("right", ImVec2(0.0f, 0.0f), ImGuiChildFlags_None, still);
+    draw_row_at(0.5f, "GET_CAN_DUPE", report->can_dupe_answered ? yes_no(report->can_dupe) : "no answer", color_info());
+    draw_row_at(0.5f, "GET_INPUT_BITMASKS", yes_no(report->input_bitmasks), color_info());
     std::snprintf(text, sizeof(text), "%u", report->language);
-    draw_row("GET_LANGUAGE", report->language_answered ? text : "no answer", color_info());
-
+    draw_row_at(0.5f, "GET_LANGUAGE", report->language_answered ? text : "no answer", color_info());
     std::snprintf(text, sizeof(text), "%d (bit0 video, bit1 audio)", report->audio_video_enable);
-    draw_row("GET_AUDIO_VIDEO_ENABLE", report->audio_video_enable_answered ? text : "no answer", color_info());
-
-    draw_row("GET_SYSTEM_DIRECTORY", report->system_directory_answered ? report->system_directory : "no answer", color_info());
-    draw_row("GET_SAVE_DIRECTORY", report->save_directory_answered ? report->save_directory : "no answer", color_info());
-    draw_row("GET_LIBRETRO_PATH", report->libretro_path_answered ? report->libretro_path : "no answer", color_info());
+    draw_row_at(0.5f, "GET_AUDIO_VIDEO_ENABLE", report->audio_video_enable_answered ? text : "no answer", color_info());
+    draw_row_at(0.5f, "GET_SYSTEM_DIRECTORY", report->system_directory_answered ? report->system_directory : "no answer", color_info());
+    draw_row_at(0.5f, "GET_SAVE_DIRECTORY", report->save_directory_answered ? report->save_directory : "no answer", color_info());
+    draw_row_at(0.5f, "GET_LIBRETRO_PATH", report->libretro_path_answered ? report->libretro_path : "no answer", color_info());
+    ImGui::EndChild();
 }
 
 /* Where the video page's test pattern goes, in framebuffer pixels. */
