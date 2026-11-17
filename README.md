@@ -83,7 +83,7 @@ by pixel count instead of the aspect ratio shows squeezed or stretched text.
 Options are defined as core options v2 (category "Video") and sent in the
 newest format the frontend reports with `GET_CORE_OPTIONS_VERSION`: v2, v1, or
 `SET_VARIABLES` when the frontend doesn't answer (the default value is moved
-first, as v0 requires). The Environment page shows which one was used.
+first, as v0 requires). The Callbacks page shows which one was used.
 
 ## What it exercises
 
