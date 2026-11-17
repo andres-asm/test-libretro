@@ -26,7 +26,7 @@ typedef enum KeyboardMode
     KEYBOARD_MODE_COUNT
 } KeyboardMode;
 
-#define KEYBOARD_LOG_SIZE 12
+#define KEYBOARD_LOG_SIZE 64
 
 typedef struct KeyboardLogEntry
 {

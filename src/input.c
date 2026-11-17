@@ -99,6 +99,7 @@ void input_update(InputState* input, retro_input_poll_t poll, retro_input_state_
     input->select_held_frames = held_frames(input, RETRO_DEVICE_ID_JOYPAD_SELECT, input->select_held_frames);
     input->l_held_frames      = held_frames(input, RETRO_DEVICE_ID_JOYPAD_L, input->l_held_frames);
     input->r_held_frames      = held_frames(input, RETRO_DEVICE_ID_JOYPAD_R, input->r_held_frames);
+    input->x_held_frames      = held_frames(input, RETRO_DEVICE_ID_JOYPAD_X, input->x_held_frames);
 }
 
 bool input_is_down(const InputState* input, unsigned button_id)

@@ -18,7 +18,8 @@ extern "C" {
 
 /* How long Start/Select must be held to pass/fail a page (frames at 60 fps). */
 #define INPUT_HOLD_FRAMES 60
-/* How long L/R must be held to go to the previous / next page. */
+/* How long L/R must be held to go to the previous / next page (and X to
+   change a page's setting: its port, the keyboard's mode). */
 #define INPUT_PAGE_HOLD_FRAMES 30
 
 /* The mouse buttons, as bits of InputState::mouse_buttons. */
@@ -54,6 +55,7 @@ typedef struct InputState
     unsigned select_held_frames;
     unsigned l_held_frames;
     unsigned r_held_frames;
+    unsigned x_held_frames;
 } InputState;
 
 void input_update(InputState* input, retro_input_poll_t poll, retro_input_state_t state,

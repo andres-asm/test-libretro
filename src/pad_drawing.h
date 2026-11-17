@@ -1,8 +1,8 @@
 #pragma once
 
-// A gamepad drawn with ImGui shapes: every button of its style, lit while
-// held, and the sticks with a dot where they are pushed. Labels are the
-// style's own names (PlayStation's symbols are drawn as shapes).
+// A gamepad drawn with square blocks (the software renderer draws circles
+// poorly): every button of its style, lit while held, and the sticks with a
+// dot where they are pushed. No labels: the shape tells which button it is.
 
 #include <cstdint>
 

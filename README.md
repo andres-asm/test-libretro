@@ -62,6 +62,7 @@ Every result is also written to the frontend's log.
 | Hold Start (1 s) | Pass this page, go to the next |
 | Hold Select (1 s) | Fail this page, go to the next |
 | Hold L / R (0.5 s) | Previous / next page (no result) |
+| Hold X (0.5 s) | RetroPad basic / Controllers: next port; Keyboard: the other mode (no mouse needed) |
 | Mouse / pointer | Click Back, Fail, Pass (always at the top of the page) |
 | D-pad Left/Right, Up | Audio page: channels, callback type |
 | Keyboard | Save RAM page: type into the text field (the frontend must send key events; in Multitap's test frontend, turn on game focus first) |

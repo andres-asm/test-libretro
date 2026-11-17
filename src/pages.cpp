@@ -111,7 +111,8 @@ static void handle_controller(CoreState* core)
     if (pages->waiting_for_release)
     {
         if (!input_is_down(input, RETRO_DEVICE_ID_JOYPAD_START) && !input_is_down(input, RETRO_DEVICE_ID_JOYPAD_SELECT) &&
-            !input_is_down(input, RETRO_DEVICE_ID_JOYPAD_L) && !input_is_down(input, RETRO_DEVICE_ID_JOYPAD_R))
+            !input_is_down(input, RETRO_DEVICE_ID_JOYPAD_L) && !input_is_down(input, RETRO_DEVICE_ID_JOYPAD_R) &&
+            !input_is_down(input, RETRO_DEVICE_ID_JOYPAD_X))
         {
             pages->waiting_for_release = false;
         }
@@ -140,6 +141,25 @@ static void handle_controller(CoreState* core)
     {
         pages->waiting_for_release = true;
         next_page(pages);
+        return;
+    }
+    /* Hold X: the page's setting, for a frontend without a mouse (the combos need one). */
+    if (input->x_held_frames >= INPUT_PAGE_HOLD_FRAMES &&
+        (pages->page == PAGE_RETROPAD || pages->page == PAGE_CONTROLLERS || pages->page == PAGE_KEYBOARD))
+    {
+        pages->waiting_for_release = true;
+        if (pages->page == PAGE_RETROPAD)
+        {
+            pages->retropad_port = (pages->retropad_port + 1) % CONTROLLER_PORTS;
+        }
+        else if (pages->page == PAGE_CONTROLLERS)
+        {
+            pages->controllers_port = (pages->controllers_port + 1) % CONTROLLER_PORTS;
+        }
+        else
+        {
+            core->keyboard.mode = static_cast<KeyboardMode>((core->keyboard.mode + 1) % KEYBOARD_MODE_COUNT);
+        }
         return;
     }
 
@@ -187,10 +207,17 @@ static void draw_colored(ImVec4 color, const char* text)
     ImGui::TextColored(color, "%s", text);
 }
 
+/* The navigation's height: a separator, the holds' bars, the buttons. */
+static float navigation_height()
+{
+    const ImGuiStyle& style = ImGui::GetStyle();
+    return 1.0f + ImGui::GetTextLineHeight() + ImGui::GetFrameHeight() + 4.0f + style.ItemSpacing.y * 3.0f;
+}
+
 /*
- * Navigation, drawn at the TOP of every page, so Back / Fail / Pass sit in the
- * same spot whatever the page's length (and a short frontend window never cuts
- * them off). Buttons first, then the hold-to-pass/fail progress.
+ * Navigation, at the BOTTOM of every page, so Back / Fail / Pass / Next sit in
+ * the same spot whatever the page's length: how far each hold has come, then
+ * the buttons.
  */
 static void draw_navigation(CoreState* core)
 {
@@ -200,6 +227,32 @@ static void draw_navigation(CoreState* core)
     float quarter = (ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 3.0f) / 4.0f;
     ImVec2 button(quarter, ImGui::GetFrameHeight() + 4.0f);
     bool waiting = pages->waiting_for_release;
+
+    ImGui::Separator();   /* between the page and the navigation */
+
+    /* How far each hold has come. */
+    struct Hold
+    {
+        const char* label;
+        unsigned    frames;
+        unsigned    needed;
+    };
+    Hold holds[4] = {
+        {pages->page == PAGE_SUMMARY ? "Start: finish" : "Start: pass", input->start_held_frames, INPUT_HOLD_FRAMES},
+        {"Select: fail", pages->page == PAGE_SUMMARY ? 0u : input->select_held_frames, INPUT_HOLD_FRAMES},
+        {"L: back", input->l_held_frames, INPUT_PAGE_HOLD_FRAMES},
+        {"R: next", input->r_held_frames, INPUT_PAGE_HOLD_FRAMES},
+    };
+    float bar_height = ImGui::GetTextLineHeight();
+    for (int h = 0; h < 4; h++)
+    {
+        if (h > 0)
+        {
+            ImGui::SameLine(style.WindowPadding.x + static_cast<float>(h) * (quarter + style.ItemSpacing.x));
+        }
+        float fraction = waiting ? 0.0f : static_cast<float>(holds[h].frames) / static_cast<float>(holds[h].needed);
+        ImGui::ProgressBar(fraction > 1.0f ? 1.0f : fraction, ImVec2(quarter, bar_height), holds[h].label);
+    }
 
     if (ImGui::Button("Back (hold L)", button))
     {
@@ -234,32 +287,6 @@ static void draw_navigation(CoreState* core)
             next_page(pages);
         }
     }
-
-    /* How far each hold has come. */
-    struct Hold
-    {
-        const char* label;
-        unsigned    frames;
-        unsigned    needed;
-    };
-    Hold holds[4] = {
-        {pages->page == PAGE_SUMMARY ? "Start: finish" : "Start: pass", input->start_held_frames, INPUT_HOLD_FRAMES},
-        {"Select: fail", pages->page == PAGE_SUMMARY ? 0u : input->select_held_frames, INPUT_HOLD_FRAMES},
-        {"L: back", input->l_held_frames, INPUT_PAGE_HOLD_FRAMES},
-        {"R: next", input->r_held_frames, INPUT_PAGE_HOLD_FRAMES},
-    };
-    float bar_height = ImGui::GetTextLineHeight();
-    for (int h = 0; h < 4; h++)
-    {
-        if (h > 0)
-        {
-            ImGui::SameLine(style.WindowPadding.x + static_cast<float>(h) * (quarter + style.ItemSpacing.x));
-        }
-        float fraction = waiting ? 0.0f : static_cast<float>(holds[h].frames) / static_cast<float>(holds[h].needed);
-        ImGui::ProgressBar(fraction > 1.0f ? 1.0f : fraction, ImVec2(quarter, bar_height), holds[h].label);
-    }
-
-    ImGui::Separator();   /* between the navigation and the page */
 }
 
 /* ---------------------------------------------------------------------------
@@ -406,6 +433,8 @@ static void port_combo(int* port)
     ImGui::SameLine();
     ImGui::SetNextItemWidth(90.0f);
     ImGui::Combo("##port", port, "Port 1\0Port 2\0Port 3\0Port 4\0");
+    ImGui::SameLine();
+    draw_colored(color_info(), "(hold X: next port)");
 }
 
 static void page_retropad(CoreState* core)
@@ -448,8 +477,7 @@ static void page_controllers(CoreState* core)
     port_combo(&core->pages.controllers_port);
     int port = core->pages.controllers_port;
     unsigned device = state->device[port];
-    ImGui::SameLine();
-    std::snprintf(text, sizeof(text), "   plugged in: %s%s", controllers_device_name(device),
+    std::snprintf(text, sizeof(text), "Plugged in: %s%s", controllers_device_name(device),
                   state->unknown_device[port] ? " (never offered: frontend bug)" : "");
     draw_colored(state->unknown_device[port] ? color_bad() : color_pressed(), text);
 
@@ -484,6 +512,8 @@ static void page_keyboard(CoreState* core)
     {
         keyboard->mode = static_cast<KeyboardMode>(mode);
     }
+    ImGui::SameLine();
+    draw_colored(color_info(), "(hold X: the other mode)");
     ImGui::Spacing();
 
     if (keyboard->mode == KEYBOARD_CALLBACK)
@@ -492,7 +522,8 @@ static void page_keyboard(CoreState* core)
                  core->report.keyboard_callback_accepted ? color_good() : color_bad());
         std::snprintf(text, sizeof(text), "%u", keyboard->events);
         draw_row("Events received", text, keyboard->events > 0 ? color_good() : color_info());
-        for (unsigned i = 0; i < keyboard->log_count; i++)
+        /* As many of the newest as the page has room for. */
+        for (unsigned i = 0; i < keyboard->log_count && ImGui::GetContentRegionAvail().y >= ImGui::GetTextLineHeightWithSpacing(); i++)
         {
             const KeyboardLogEntry* entry = &keyboard->log[i];
             keyboard_key_name(entry->keycode, name, sizeof(name));
@@ -752,7 +783,9 @@ void pages_run_frame(CoreState* core)
                              ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
     if (ImGui::Begin(title, nullptr, flags))
     {
-        draw_navigation(core);
+        /* The page above, in its own region, so it never covers the navigation. */
+        ImGui::BeginChild("page", ImVec2(0.0f, -navigation_height()), ImGuiChildFlags_None,
+                          ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         switch (pages->page)
         {
             case PAGE_CALLBACKS:   page_callbacks(core); break;
@@ -767,6 +800,8 @@ void pages_run_frame(CoreState* core)
             case PAGE_SUMMARY:     page_summary(core); break;
             default:               break;
         }
+        ImGui::EndChild();
+        draw_navigation(core);
     }
     ImGui::End();
 
