@@ -22,19 +22,26 @@ can run a software-rendered core.
    `SET_SYSTEM_AV_INFO` calls the size and timing options made.
 3. **Input**: every joypad button and both analog sticks of controller 1, live,
    plus the pointer. Checks that bitmask reads match per-button reads.
-4. **Audio**: 440 Hz tone, left / right / both, through either the batch or the
+4. **Controllers**: each port offers three controller types
+   (`SET_CONTROLLER_INFO`): RetroPad, Two-button pad (d-pad, Fire, Jump, Pause)
+   and Six-button pad (d-pad, A B C X Y Z, Start, Mode, on RetroPad buttons
+   whose names don't match). Plugging a type into a port
+   (`retro_set_controller_port_device`) sends the input descriptors again with
+   that type's buttons and names. The page shows every port's type and its
+   buttons, lit while held, so a frontend's per-type remapping can be checked.
+5. **Audio**: 440 Hz tone, left / right / both, through either the batch or the
    single-sample callback, at the sample rate option (32000 / 44100 / 48000 /
    96000 Hz). Starts with channels **off**: pick a channel with D-pad Left/Right.
-5. **Save RAM**: a text field stored in the core's save RAM
+6. **Save RAM**: a text field stored in the core's save RAM
    (`RETRO_MEMORY_SAVE_RAM`, 60 bytes: magic, text, checksum). Type something,
    quit, start the core again: the page shows whether the frontend restored it
    (green), left it empty (grey) or loaded the wrong bytes (red, corrupted).
    Typing needs the frontend's keyboard callback (`SET_KEYBOARD_CALLBACK`).
-6. **Savestates**: a state holds the frame counter, the current page and every
+7. **Savestates**: a state holds the frame counter, the current page and every
    page's result. Loading a state must make the frame counter jump back and
    return to the page it was saved on, with those results. The page shows how
    many states were saved and loaded, and where.
-7. **Summary**: results, then the core asks the frontend to shut down
+8. **Summary**: results, then the core asks the frontend to shut down
    (`RETRO_ENVIRONMENT_SHUTDOWN`).
 
 Every result is also written to the frontend's log.
@@ -77,6 +84,7 @@ first, as v0 requires). The Environment page shows which one was used.
 | `GET_CORE_OPTIONS_VERSION`, `SET_CORE_OPTIONS_V2` / `SET_CORE_OPTIONS` / `SET_VARIABLES`, `GET_VARIABLE`, `GET_VARIABLE_UPDATE` | Environment, options |
 | `SET_GEOMETRY`, `SET_SYSTEM_AV_INFO` | Video (size and frame rate options) |
 | Joypad, bitmask, analog, pointer input | Input |
+| `SET_CONTROLLER_INFO`, `SET_INPUT_DESCRIPTORS`, `retro_set_controller_port_device`, joypad input on 4 ports | Controllers |
 | `audio_sample` and `audio_sample_batch` | Audio |
 | `SET_KEYBOARD_CALLBACK`, `RETRO_MEMORY_SAVE_RAM` | Save RAM |
 | `retro_serialize` / `retro_unserialize` | Savestates |

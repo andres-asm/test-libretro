@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #include "audio.h"
+#include "controllers.h"
 #include "input.h"
 #include "libretro.h"
 #include "options.h"
@@ -86,6 +87,7 @@ typedef struct CoreState
     Framebuffer framebuffer;
     bool        game_loaded;
     InputState  input;
+    ControllersState controllers;   /* the Controllers page: types per port and their buttons */
     AudioState  audio;
     Pages      pages;
 

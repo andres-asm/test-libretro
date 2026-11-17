@@ -18,6 +18,7 @@ typedef enum PageId
     PAGE_ENVIRONMENT,
     PAGE_VIDEO,
     PAGE_INPUT,
+    PAGE_CONTROLLERS,
     PAGE_AUDIO,
     PAGE_SRAM,
     PAGE_SAVESTATE,

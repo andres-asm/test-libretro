@@ -26,6 +26,7 @@ const char* pages_title(PageId page)
         case PAGE_ENVIRONMENT: return "Environment";
         case PAGE_VIDEO:       return "Video";
         case PAGE_INPUT:       return "Input";
+        case PAGE_CONTROLLERS: return "Controllers";
         case PAGE_AUDIO:       return "Audio";
         case PAGE_SRAM:        return "Save RAM";
         case PAGE_SAVESTATE:   return "Savestates";
@@ -380,6 +381,40 @@ static void page_input(CoreState* core, struct nk_context* ctx)
     }
 }
 
+static void page_controllers(CoreState* core, struct nk_context* ctx)
+{
+    const ControllersState* state = &core->controllers;
+    unsigned port = 0;
+
+    draw_text(ctx, 50, "Each port offers three controller types (RetroPad, Two-button pad, Six-button pad), "
+                       "each with its own buttons and names. Plug a type into a port in the frontend, then press "
+                       "every button on that port's controller: each name lights up while held.");
+
+    for (port = 0; port < CONTROLLER_PORTS; port++)
+    {
+        const ControllerButton* buttons = NULL;
+        unsigned count = controllers_buttons(state->device[port], &buttons);
+        unsigned b = 0;
+        nk_layout_row_dynamic(ctx, 18, 1);
+        nk_labelf_colored(ctx, NK_TEXT_LEFT, state->unknown_device[port] ? color_bad() : color_info(), "Port %u: %s%s",
+                          port + 1, controllers_device_name(state->device[port]),
+                          state->unknown_device[port] ? " (never offered: frontend bug)" : "");
+        nk_layout_row_dynamic(ctx, 18, 8);
+        for (b = 0; b < count; b++)
+        {
+            bool down = (state->buttons[port] & (1u << buttons[b].id)) != 0;
+            nk_label_colored(ctx, buttons[b].name, NK_TEXT_CENTERED, down ? color_pressed() : color_info());
+        }
+    }
+
+    nk_layout_row_dynamic(ctx, 18, 1);
+    nk_label_colored(ctx, state->info_accepted ? "SET_CONTROLLER_INFO: accepted" : "SET_CONTROLLER_INFO: not accepted",
+                     NK_TEXT_LEFT, state->info_accepted ? color_good() : color_bad());
+    nk_labelf_colored(ctx, NK_TEXT_LEFT, state->descriptors_accepted ? color_good() : color_bad(),
+                      "SET_INPUT_DESCRIPTORS: sent %u time(s), last one %s; %u device change(s)", state->descriptor_sends,
+                      state->descriptors_accepted ? "accepted" : "not accepted", state->device_changes);
+}
+
 static void page_audio(CoreState* core, struct nk_context* ctx)
 {
     draw_text(ctx, 34, "You should hear a steady 440 Hz tone in the selected channel(s): "
@@ -564,6 +599,7 @@ void pages_run_frame(CoreState* core)
             case PAGE_ENVIRONMENT: page_environment(core, ctx); break;
             case PAGE_VIDEO:       pattern_area = page_video(core, ctx); draw_pattern = true; break;
             case PAGE_INPUT:       page_input(core, ctx); break;
+            case PAGE_CONTROLLERS: page_controllers(core, ctx); break;
             case PAGE_AUDIO:       page_audio(core, ctx); break;
             case PAGE_SRAM:        page_sram(core, ctx, entered); break;
             case PAGE_SAVESTATE:   page_savestate(core, ctx); break;

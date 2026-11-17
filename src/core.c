@@ -20,10 +20,11 @@ static CoreState g_core;
 /*
  * Savestate layout. Fixed size, so retro_serialize_size() never changes.
  * Version 2 adds where the user was: the page and every page's result, so
- * loading a state brings back that screen and those results.
+ * loading a state brings back that screen and those results. Version 3: one
+ * more page (Controllers).
  */
 #define SAVESTATE_MAGIC   0x5A57544Du   /* "MTWZ" */
-#define SAVESTATE_VERSION 2u
+#define SAVESTATE_VERSION 3u
 
 typedef struct SaveStateData
 {
@@ -138,6 +139,9 @@ void retro_set_environment(retro_environment_t callback)
 
     /* v2, v1 or SET_VARIABLES, whichever the frontend says it supports (options.h). */
     options_register(callback, &g_core.report.options);
+
+    /* Three controller types per port, each with its own buttons (controllers.h). */
+    controllers_register(callback, &g_core.controllers);
 }
 
 void retro_set_video_refresh(retro_video_refresh_t callback)           { g_core.video_refresh = callback; }
@@ -405,6 +409,7 @@ void retro_run(void)
 
     input_update(&g_core.input, g_core.input_poll, g_core.input_state,
                  g_core.framebuffer.width, g_core.framebuffer.height);
+    controllers_read(&g_core.controllers, g_core.input_state);
     pages_run_frame(&g_core);
 
     g_core.video_refresh(g_core.framebuffer.pixels, g_core.framebuffer.width,
@@ -419,8 +424,8 @@ void retro_reset(void)
 
 void retro_set_controller_port_device(unsigned port, unsigned device)
 {
-    (void)port;
-    (void)device;
+    core_log(&g_core, RETRO_LOG_INFO, "port %u: %s\n", port + 1, controllers_device_name(device));
+    controllers_set_device(g_core.environment, &g_core.controllers, port, device);
 }
 
 /* ---------------------------------------------------------------------------

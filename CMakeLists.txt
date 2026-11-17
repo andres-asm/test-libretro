@@ -34,6 +34,7 @@ add_library(test_libretro MODULE
     src/pages.c
     src/video.c
     src/input.c
+    src/controllers.c
     src/audio.c
     src/options.c
     src/sram.c
