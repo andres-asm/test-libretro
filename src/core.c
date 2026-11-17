@@ -22,10 +22,11 @@ static CoreState g_core;
  * Savestate layout. Fixed size, so retro_serialize_size() never changes.
  * Version 2 adds where the user was: the page and every page's result, so
  * loading a state brings back that screen and those results. Version 3: one
- * more page (Controllers).
+ * more page (Controllers). Version 4: the pages as they are now (RetroPad,
+ * Controllers, Keyboard, Mouse & pointer).
  */
 #define SAVESTATE_MAGIC   0x5A57544Du   /* "MTWZ" */
-#define SAVESTATE_VERSION 3u
+#define SAVESTATE_VERSION 4u
 
 typedef struct SaveStateData
 {
@@ -171,7 +172,6 @@ void retro_get_system_info(struct retro_system_info* info)
 static void RETRO_CALLCONV keyboard_event(bool down, unsigned keycode, uint32_t character, uint16_t key_modifiers)
 {
     KeyEvent* event = NULL;
-    (void)key_modifiers;
 
     if (g_core.key_queue_count >= KEY_QUEUE_SIZE)
     {
@@ -182,6 +182,7 @@ static void RETRO_CALLCONV keyboard_event(bool down, unsigned keycode, uint32_t 
     event->down = down;
     event->keycode = keycode;
     event->character = character;
+    event->modifiers = key_modifiers;
     g_core.key_queue_count++;
 }
 
@@ -217,7 +218,7 @@ void retro_init(void)
 
     /* Specified with NULL data: the return value IS the answer. */
     report->input_bitmasks = g_core.environment(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL);
-    g_core.input.bitmask_supported = report->input_bitmasks;
+    g_core.controllers.bitmask_supported = report->input_bitmasks;
 
     core_log(&g_core, RETRO_LOG_INFO, "init\n");
 }
@@ -420,6 +421,7 @@ void retro_run(void)
     input_update(&g_core.input, g_core.input_poll, g_core.input_state,
                  g_core.framebuffer.width, g_core.framebuffer.height);
     controllers_read(&g_core.controllers, g_core.input_state);
+    keyboard_poll(&g_core.keyboard, g_core.input_state);
     pages_run_frame(&g_core);
 
     g_core.video_refresh(g_core.framebuffer.pixels, g_core.framebuffer.width,

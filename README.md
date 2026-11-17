@@ -12,7 +12,7 @@ shares it.
 
 ## Pages
 
-1. **Environment**: what the frontend answered to the core's environment calls
+1. **Callbacks**: what the frontend answered to the core's environment calls
    (log interface, pixel formats, directories, input bitmasks, language, ...),
    plus which core options version it reported, which options API the core
    used and the option values it got. Answers that break the libretro spec are
@@ -22,30 +22,36 @@ shares it.
    frontend that ignores `pitch` shows a slanted picture. Also shows the
    current size and frame rate, and how many `SET_GEOMETRY` /
    `SET_SYSTEM_AV_INFO` calls the size and timing options made.
-3. **Input**: every joypad button and both analog sticks of controller 1, live,
-   plus the pointer. Checks that bitmask reads match per-button reads.
-4. **Controllers**: each port offers three controller types
-   (`SET_CONTROLLER_INFO`): RetroPad (every button, and both sticks as analog
-   descriptors "Move" / "Aim"), Two-button pad (d-pad, Fire, Jump, Pause)
-   and Six-button pad (d-pad, A B C X Y Z, Start, Mode, on RetroPad buttons
-   whose names don't match). Plugging a type into a port
-   (`retro_set_controller_port_device`) sends the input descriptors again with
-   that type's buttons and names. The page shows every port's type and its
-   buttons, lit while held, so a frontend's per-type remapping can be checked.
-5. **Audio**: 440 Hz tone, left / right / both, through either the batch or the
+3. **Audio**: 440 Hz tone, left / right / both, through either the batch or the
    single-sample callback, at the sample rate option (32000 / 44100 / 48000 /
    96000 Hz). Starts with channels **off**: pick a channel with D-pad Left/Right.
-6. **Save RAM**: a text field stored in the core's save RAM
+4. **RetroPad basic**: the chosen port's controller (a combo picks port 1-4)
+   as a plain RetroPad, drawn: every button lights up while held, the sticks
+   show where they are pushed. Checks that bitmask reads match per-button reads.
+5. **Controllers**: each port offers four controller types
+   (`SET_CONTROLLER_INFO`): RetroPad, NES style gamepad, SNES style gamepad and
+   PSX DualShock style gamepad (an ANALOG subclass, with PlayStation's names).
+   Plugging a type into a port (`retro_set_controller_port_device`) sends the
+   input descriptors again with that type's buttons and names; the sticks are
+   "Left Stick" / "Right Stick". The page draws the chosen port's type with
+   only its buttons lit, so a frontend's per-type remapping can be checked.
+6. **Keyboard**: both ways a core gets the keyboard, picked with a combo: the
+   key events of `SET_KEYBOARD_CALLBACK` (a log, with the typed character and
+   modifiers) or polling `RETRO_DEVICE_KEYBOARD` every frame (the keys held).
+7. **Mouse & pointer**: `RETRO_DEVICE_MOUSE` (relative moves added up, a
+   yellow cross; buttons, wheel) and `RETRO_DEVICE_POINTER` (absolute, a green
+   cross).
+8. **Save RAM**: a text field stored in the core's save RAM
    (`RETRO_MEMORY_SAVE_RAM`, 60 bytes: magic, text, checksum). Type something,
    quit, start the core again: the page shows whether the frontend restored it
    (green), left it empty (grey) or loaded the wrong bytes (red, corrupted).
    Typing needs the frontend's keyboard callback (`SET_KEYBOARD_CALLBACK`).
-7. **Savestates**: a state holds the frame counter, the current page and every
+9. **Savestates**: a state holds the frame counter, the current page and every
    page's result. Loading a state must make the frame counter jump back and
    return to the page it was saved on, with those results. The page shows how
    many states were saved and loaded, and where.
-8. **Summary**: results, then the core asks the frontend to shut down
-   (`RETRO_ENVIRONMENT_SHUTDOWN`).
+10. **Summary**: results, then the core asks the frontend to shut down
+    (`RETRO_ENVIRONMENT_SHUTDOWN`).
 
 Every result is also written to the frontend's log.
 
@@ -55,7 +61,7 @@ Every result is also written to the frontend's log.
 |-------|--------|
 | Hold Start (1 s) | Pass this page, go to the next |
 | Hold Select (1 s) | Fail this page, go to the next |
-| L | Previous page |
+| Hold L / R (0.5 s) | Previous / next page (no result) |
 | Mouse / pointer | Click Back, Fail, Pass (always at the top of the page) |
 | D-pad Left/Right, Up | Audio page: channels, callback type |
 | Keyboard | Save RAM page: type into the text field (the frontend must send key events; in Multitap's test frontend, turn on game focus first) |
@@ -83,13 +89,15 @@ first, as v0 requires). The Environment page shows which one was used.
 
 | libretro feature | Where |
 |------------------|-------|
-| `SET_PIXEL_FORMAT` (all three formats), `pitch` | Environment, Video |
-| `GET_CORE_OPTIONS_VERSION`, `SET_CORE_OPTIONS_V2` / `SET_CORE_OPTIONS` / `SET_VARIABLES`, `GET_VARIABLE`, `GET_VARIABLE_UPDATE` | Environment, options |
+| `SET_PIXEL_FORMAT` (all three formats), `pitch` | Callbacks, Video |
+| `GET_CORE_OPTIONS_VERSION`, `SET_CORE_OPTIONS_V2` / `SET_CORE_OPTIONS` / `SET_VARIABLES`, `GET_VARIABLE`, `GET_VARIABLE_UPDATE` | Callbacks, options |
 | `SET_GEOMETRY`, `SET_SYSTEM_AV_INFO` | Video (size and frame rate options) |
-| Joypad, bitmask, analog, pointer input | Input |
-| `SET_CONTROLLER_INFO`, `SET_INPUT_DESCRIPTORS`, `retro_set_controller_port_device`, joypad input on 4 ports | Controllers |
+| Joypad, bitmask and analog input on 4 ports | RetroPad basic |
+| `SET_CONTROLLER_INFO`, `SET_INPUT_DESCRIPTORS` (joypad and analog), `retro_set_controller_port_device`, subclass devices | Controllers |
+| `SET_KEYBOARD_CALLBACK`, `RETRO_DEVICE_KEYBOARD` | Keyboard |
+| `RETRO_DEVICE_MOUSE`, `RETRO_DEVICE_POINTER` | Mouse & pointer |
 | `audio_sample` and `audio_sample_batch` | Audio |
-| `SET_KEYBOARD_CALLBACK`, `RETRO_MEMORY_SAVE_RAM` | Save RAM |
+| `RETRO_MEMORY_SAVE_RAM` | Save RAM |
 | `retro_serialize` / `retro_unserialize` | Savestates |
 | `SHUTDOWN` | Summary |
 

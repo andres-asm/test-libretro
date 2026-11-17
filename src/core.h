@@ -15,6 +15,7 @@
 #include "audio.h"
 #include "controllers.h"
 #include "input.h"
+#include "keyboard.h"
 #include "libretro.h"
 #include "options.h"
 #include "sram.h"
@@ -36,6 +37,7 @@ typedef struct KeyEvent
     bool     down;
     unsigned keycode;      /* RETROK_* (RETROK_UNKNOWN for typed text) */
     uint32_t character;    /* UTF-32, 0 if none */
+    uint16_t modifiers;    /* RETROKMOD_* */
 } KeyEvent;
 
 /* What the frontend answered to the environment calls we make. Shown on the first page. */
@@ -93,7 +95,8 @@ typedef struct CoreState
     Framebuffer framebuffer;
     bool        game_loaded;
     InputState  input;
-    ControllersState controllers;   /* the Controllers page: types per port and their buttons */
+    ControllersState controllers;   /* every port's pad, and the controller types per port */
+    KeyboardState    keyboard;      /* the Keyboard page: both ways of reading it */
     AudioState  audio;
     Pages      pages;
     struct Ui* ui;                  /* ImGui drawing the pages (ui.h); NULL if it couldn't start */

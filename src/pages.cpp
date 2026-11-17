@@ -6,6 +6,7 @@
 #include "imgui.h"
 
 #include "core.h"
+#include "pad_drawing.h"
 #include "ui.h"
 
 /* ---------------------------------------------------------------------------
@@ -25,11 +26,13 @@ const char* pages_title(PageId page)
 {
     switch (page)
     {
-        case PAGE_ENVIRONMENT: return "Environment";
+        case PAGE_CALLBACKS:   return "Callbacks";
         case PAGE_VIDEO:       return "Video";
-        case PAGE_INPUT:       return "Input";
-        case PAGE_CONTROLLERS: return "Controllers";
         case PAGE_AUDIO:       return "Audio";
+        case PAGE_RETROPAD:    return "RetroPad basic";
+        case PAGE_CONTROLLERS: return "Controllers";
+        case PAGE_KEYBOARD:    return "Keyboard";
+        case PAGE_MOUSE:       return "Mouse & pointer";
         case PAGE_SRAM:        return "Save RAM";
         case PAGE_SAVESTATE:   return "Savestates";
         case PAGE_SUMMARY:     return "Summary";
@@ -83,9 +86,18 @@ static void finish_page(CoreState* core, TestResult result)
 
 static void previous_page(Pages* pages)
 {
-    if (pages->page > PAGE_ENVIRONMENT)
+    if (pages->page > PAGE_CALLBACKS)
     {
         pages->page = static_cast<PageId>(pages->page - 1);
+    }
+}
+
+/* To the next page without a result (it stays as it was). */
+static void next_page(Pages* pages)
+{
+    if (pages->page < PAGE_SUMMARY)
+    {
+        pages->page = static_cast<PageId>(pages->page + 1);
     }
 }
 
@@ -95,9 +107,11 @@ static void handle_controller(CoreState* core)
     Pages* pages = &core->pages;
     const InputState* input = &core->input;
 
+    /* After a hold did something: nothing more until those buttons are let go. */
     if (pages->waiting_for_release)
     {
-        if (!input_is_down(input, RETRO_DEVICE_ID_JOYPAD_START) && !input_is_down(input, RETRO_DEVICE_ID_JOYPAD_SELECT))
+        if (!input_is_down(input, RETRO_DEVICE_ID_JOYPAD_START) && !input_is_down(input, RETRO_DEVICE_ID_JOYPAD_SELECT) &&
+            !input_is_down(input, RETRO_DEVICE_ID_JOYPAD_L) && !input_is_down(input, RETRO_DEVICE_ID_JOYPAD_R))
         {
             pages->waiting_for_release = false;
         }
@@ -116,9 +130,17 @@ static void handle_controller(CoreState* core)
         finish_page(core, RESULT_FAIL);
         return;
     }
-    if (input_was_pressed(input, RETRO_DEVICE_ID_JOYPAD_L))
+    if (input->l_held_frames >= INPUT_PAGE_HOLD_FRAMES)
     {
+        pages->waiting_for_release = true;
         previous_page(pages);
+        return;
+    }
+    if (input->r_held_frames >= INPUT_PAGE_HOLD_FRAMES)
+    {
+        pages->waiting_for_release = true;
+        next_page(pages);
+        return;
     }
 
     /* Page-specific controls. */
@@ -173,27 +195,22 @@ static void draw_colored(ImVec4 color, const char* text)
 static void draw_navigation(CoreState* core)
 {
     Pages* pages = &core->pages;
-    unsigned start_hold = core->input.start_held_frames;
-    unsigned select_hold = core->input.select_held_frames;
+    const InputState* input = &core->input;
     const ImGuiStyle& style = ImGui::GetStyle();
-    float third = (ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 2.0f) / 3.0f;
     float quarter = (ImGui::GetContentRegionAvail().x - style.ItemSpacing.x * 3.0f) / 4.0f;
-    ImVec2 button(third, ImGui::GetFrameHeight() + 4.0f);
+    ImVec2 button(quarter, ImGui::GetFrameHeight() + 4.0f);
+    bool waiting = pages->waiting_for_release;
 
-    if (pages->waiting_for_release)
-    {
-        start_hold = 0;
-        select_hold = 0;
-    }
-
-    if (ImGui::Button("Back (L)", button))
+    if (ImGui::Button("Back (hold L)", button))
     {
         previous_page(pages);
     }
     ImGui::SameLine();
     if (pages->page == PAGE_SUMMARY)
     {
-        ImGui::Dummy(button);   /* empty middle cell */
+        ImGui::Dummy(button);   /* empty middle cells */
+        ImGui::SameLine();
+        ImGui::Dummy(button);
         ImGui::SameLine();
         if (ImGui::Button("Finish", button))
         {
@@ -211,20 +228,35 @@ static void draw_navigation(CoreState* core)
         {
             finish_page(core, RESULT_PASS);
         }
+        ImGui::SameLine();
+        if (ImGui::Button("Next (hold R)", button))
+        {
+            next_page(pages);
+        }
     }
 
-    float bar_height = ImGui::GetTextLineHeight();
-    ImGui::AlignTextToFramePadding();
-    ImGui::Text("Hold Start to %s:", pages->page == PAGE_SUMMARY ? "finish" : "pass");
-    ImGui::SameLine(quarter + style.ItemSpacing.x);
-    ImGui::ProgressBar(static_cast<float>(start_hold) / static_cast<float>(INPUT_HOLD_FRAMES), ImVec2(quarter, bar_height), "");
-    if (pages->page != PAGE_SUMMARY)
+    /* How far each hold has come. */
+    struct Hold
     {
-        ImGui::SameLine((quarter + style.ItemSpacing.x) * 2.0f);
-        ImGui::TextUnformatted("Hold Select to fail:");
-        ImGui::SameLine((quarter + style.ItemSpacing.x) * 3.0f);
-        ImGui::ProgressBar(static_cast<float>(select_hold) / static_cast<float>(INPUT_HOLD_FRAMES), ImVec2(quarter, bar_height),
-                           "");
+        const char* label;
+        unsigned    frames;
+        unsigned    needed;
+    };
+    Hold holds[4] = {
+        {pages->page == PAGE_SUMMARY ? "Start: finish" : "Start: pass", input->start_held_frames, INPUT_HOLD_FRAMES},
+        {"Select: fail", pages->page == PAGE_SUMMARY ? 0u : input->select_held_frames, INPUT_HOLD_FRAMES},
+        {"L: back", input->l_held_frames, INPUT_PAGE_HOLD_FRAMES},
+        {"R: next", input->r_held_frames, INPUT_PAGE_HOLD_FRAMES},
+    };
+    float bar_height = ImGui::GetTextLineHeight();
+    for (int h = 0; h < 4; h++)
+    {
+        if (h > 0)
+        {
+            ImGui::SameLine(style.WindowPadding.x + static_cast<float>(h) * (quarter + style.ItemSpacing.x));
+        }
+        float fraction = waiting ? 0.0f : static_cast<float>(holds[h].frames) / static_cast<float>(holds[h].needed);
+        ImGui::ProgressBar(fraction > 1.0f ? 1.0f : fraction, ImVec2(quarter, bar_height), holds[h].label);
     }
 
     ImGui::Separator();   /* between the navigation and the page */
@@ -239,7 +271,7 @@ static const char* yes_no(bool value)
     return value ? "yes" : "no";
 }
 
-static void page_environment(CoreState* core)
+static void page_callbacks(CoreState* core)
 {
     const EnvironmentReport* report = &core->report;
     char text[TEXT_FIELD_SIZE + 32];
@@ -366,57 +398,36 @@ static void draw_video_pattern(Framebuffer* framebuffer, PatternArea area)
     }
 }
 
-/* Names in a row of cells, lit while held. */
-static void draw_button_cells(const char* const* names, const unsigned* ids, unsigned count, uint16_t held)
+/* PORT [ Port 1 v ]: which port a page shows. */
+static void port_combo(int* port)
 {
-    const unsigned per_row = 8;
-    float cell = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x * static_cast<float>(per_row - 1)) /
-                 static_cast<float>(per_row);
-    for (unsigned i = 0; i < count; i++)
-    {
-        if (i % per_row != 0)
-        {
-            ImGui::SameLine(static_cast<float>(i % per_row) * (cell + ImGui::GetStyle().ItemSpacing.x) +
-                            ImGui::GetStyle().WindowPadding.x);
-        }
-        bool down = (held & (1u << ids[i])) != 0;
-        draw_colored(down ? color_pressed() : color_info(), names[i]);
-    }
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Port");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(90.0f);
+    ImGui::Combo("##port", port, "Port 1\0Port 2\0Port 3\0Port 4\0");
 }
 
-static void page_input(CoreState* core)
+static void page_retropad(CoreState* core)
 {
-    const InputState* input = &core->input;
-    const char* names[16];
-    unsigned ids[16];
+    const ControllersState* state = &core->controllers;
+    int port = core->pages.retropad_port;
 
-    draw_text("Press every button on controller 1: each name lights up while held. "
-              "Move both sticks. Click or touch to move the pointer.");
+    draw_text("The chosen port's controller as a plain RetroPad (RETRO_DEVICE_JOYPAD), whatever type is plugged in: "
+              "press every button and move both sticks, each part lights up.");
+    port_combo(&core->pages.retropad_port);
+    port = core->pages.retropad_port;
 
-    for (unsigned id = 0; id < 16; id++)
-    {
-        names[id] = input_button_name(id);
-        ids[id] = id;
-    }
-    draw_button_cells(names, ids, 16, input->buttons);
+    ImGui::Spacing();
+    pad_draw(PadStyle::retropad, state->buttons[port], state->analog[port], 380.0f);
+    ImGui::Text("Left stick:  x %6d  y %6d      Right stick: x %6d  y %6d", state->analog[port][0][0],
+                state->analog[port][0][1], state->analog[port][1][0], state->analog[port][1][1]);
 
-    ImGui::Text("Left stick:  x %6d  y %6d", input->analog[0][0], input->analog[0][1]);
-    ImGui::Text("Right stick: x %6d  y %6d", input->analog[1][0], input->analog[1][1]);
-
-    if (input->pointer_valid)
-    {
-        ImGui::Text("Pointer: %d, %d %s", input->pointer_x, input->pointer_y, input->pointer_pressed ? "(pressed)" : "");
-    }
-    else
-    {
-        draw_colored(color_info(), "Pointer: no data yet");
-    }
-
-    if (!input->bitmask_supported)
+    if (!state->bitmask_supported)
     {
         draw_colored(color_info(), "Input bitmasks: not supported by the frontend (optional)");
     }
-    else if (input->bitmask_mismatch)
+    else if (state->bitmask_mismatch[port])
     {
         draw_colored(color_bad(), "Input bitmasks: MISMATCH with per-button reads (frontend bug)");
     }
@@ -431,37 +442,153 @@ static void page_controllers(CoreState* core)
     const ControllersState* state = &core->controllers;
     char text[160];
 
-    draw_text("Each port offers three controller types (RetroPad, Two-button pad, Six-button pad), "
-              "each with its own buttons and names. Plug a type into a port in the frontend, then press "
-              "every button on that port's controller: each name lights up while held.");
+    draw_text("Each port offers four controller types, each with its own buttons and names "
+              "(SET_CONTROLLER_INFO, SET_INPUT_DESCRIPTORS). Plug a type into the port in the frontend, "
+              "then press every button: only that type's buttons light up.");
+    port_combo(&core->pages.controllers_port);
+    int port = core->pages.controllers_port;
+    unsigned device = state->device[port];
+    ImGui::SameLine();
+    std::snprintf(text, sizeof(text), "   plugged in: %s%s", controllers_device_name(device),
+                  state->unknown_device[port] ? " (never offered: frontend bug)" : "");
+    draw_colored(state->unknown_device[port] ? color_bad() : color_pressed(), text);
 
-    for (unsigned port = 0; port < CONTROLLER_PORTS; port++)
-    {
-        const ControllerButton* buttons = nullptr;
-        unsigned count = controllers_buttons(state->device[port], &buttons);
-        const char* names[16];
-        unsigned ids[16];
-        for (unsigned b = 0; b < count && b < 16; b++)
-        {
-            names[b] = buttons[b].name;
-            ids[b] = buttons[b].id;
-        }
-        std::snprintf(text, sizeof(text), "Port %u: %s%s", port + 1, controllers_device_name(state->device[port]),
-                      state->unknown_device[port] ? " (never offered: frontend bug)" : "");
-        draw_colored(state->unknown_device[port] ? color_bad() : color_info(), text);
-        draw_button_cells(names, ids, count < 16 ? count : 16, state->buttons[port]);
-        if (controllers_has_sticks(state->device[port]))
-        {
-            ImGui::Text("Move: x %6d  y %6d    Aim: x %6d  y %6d", state->analog[port][0][0], state->analog[port][0][1],
-                        state->analog[port][1][0], state->analog[port][1][1]);
-        }
-    }
+    ImGui::Spacing();
+    static const int16_t STILL[2][2] = {{0, 0}, {0, 0}};
+    bool sticks = controllers_has_sticks(device);
+    pad_draw(pad_style_for_device(device), static_cast<uint16_t>(state->buttons[port] & controllers_button_mask(device)),
+             sticks ? state->analog[port] : STILL, 380.0f);
 
     draw_colored(state->info_accepted ? color_good() : color_bad(),
                  state->info_accepted ? "SET_CONTROLLER_INFO: accepted" : "SET_CONTROLLER_INFO: not accepted");
     std::snprintf(text, sizeof(text), "SET_INPUT_DESCRIPTORS: sent %u time(s), last one %s; %u device change(s)",
                   state->descriptor_sends, state->descriptors_accepted ? "accepted" : "not accepted", state->device_changes);
     draw_colored(state->descriptors_accepted ? color_good() : color_bad(), text);
+}
+
+static void page_keyboard(CoreState* core)
+{
+    KeyboardState* keyboard = &core->keyboard;
+    char name[32];
+    char text[128];
+
+    draw_text("libretro gives a core the keyboard two ways: the frontend calls the core on each key event "
+              "(SET_KEYBOARD_CALLBACK), or the core asks for every key each frame (RETRO_DEVICE_KEYBOARD). "
+              "Pick one and press keys (in the test frontend: game focus first).");
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Mode");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(260.0f);
+    int mode = static_cast<int>(keyboard->mode);
+    if (ImGui::Combo("##keyboard_mode", &mode, "Callback (SET_KEYBOARD_CALLBACK)\0Polled (RETRO_DEVICE_KEYBOARD)\0"))
+    {
+        keyboard->mode = static_cast<KeyboardMode>(mode);
+    }
+    ImGui::Spacing();
+
+    if (keyboard->mode == KEYBOARD_CALLBACK)
+    {
+        draw_row("SET_KEYBOARD_CALLBACK", core->report.keyboard_callback_accepted ? "accepted" : "refused (no events)",
+                 core->report.keyboard_callback_accepted ? color_good() : color_bad());
+        std::snprintf(text, sizeof(text), "%u", keyboard->events);
+        draw_row("Events received", text, keyboard->events > 0 ? color_good() : color_info());
+        for (unsigned i = 0; i < keyboard->log_count; i++)
+        {
+            const KeyboardLogEntry* entry = &keyboard->log[i];
+            keyboard_key_name(entry->keycode, name, sizeof(name));
+            char typed[8] = "";
+            if (entry->character >= 32 && entry->character < 127)
+            {
+                std::snprintf(typed, sizeof(typed), "'%c'", static_cast<char>(entry->character));
+            }
+            std::snprintf(text, sizeof(text), "%-5s %-14s %-4s%s%s%s%s", entry->down ? "down" : "up", name, typed,
+                          (entry->modifiers & RETROKMOD_SHIFT) != 0 ? " Shift" : "",
+                          (entry->modifiers & RETROKMOD_CTRL) != 0 ? " Ctrl" : "",
+                          (entry->modifiers & RETROKMOD_ALT) != 0 ? " Alt" : "",
+                          (entry->modifiers & RETROKMOD_META) != 0 ? " Meta" : "");
+            draw_colored(i == 0 ? color_pressed() : color_info(), text);
+        }
+    }
+    else
+    {
+        draw_row("Keys seen held", keyboard->polled_any ? "yes" : "none yet", keyboard->polled_any ? color_good() : color_info());
+        ImGui::TextUnformatted("Held now:");
+        bool first = true;
+        for (unsigned key = 1; key < RETROK_LAST; key++)
+        {
+            if (!keyboard->held[key])
+            {
+                continue;
+            }
+            keyboard_key_name(key, name, sizeof(name));
+            if (!first)
+            {
+                ImGui::SameLine();
+            }
+            draw_colored(color_pressed(), name);
+            first = false;
+        }
+    }
+}
+
+/* A crosshair at (x, y) in framebuffer pixels, over the whole page. */
+static void draw_crosshair(int x, int y, ImU32 color)
+{
+    ImDrawList* draw = ImGui::GetForegroundDrawList();
+    float cx = static_cast<float>(x) + 0.5f;
+    float cy = static_cast<float>(y) + 0.5f;
+    draw->AddLine(ImVec2(cx - 8.0f, cy), ImVec2(cx + 9.0f, cy), color);
+    draw->AddLine(ImVec2(cx, cy - 8.0f), ImVec2(cx, cy + 9.0f), color);
+}
+
+static void page_mouse(CoreState* core)
+{
+    const InputState* input = &core->input;
+    static const char* const BUTTON_NAMES[5] = {"Left", "Right", "Middle", "Button 4", "Button 5"};
+    char text[96];
+
+    draw_text("Move the mouse and click its buttons (RETRO_DEVICE_MOUSE: relative moves, added up here: the yellow "
+              "cross). Touch or click for the pointer (RETRO_DEVICE_POINTER: absolute, the green cross).");
+    ImGui::Spacing();
+
+    if (input->mouse_seen)
+    {
+        std::snprintf(text, sizeof(text), "at %d, %d (last move %+d, %+d)", input->mouse_x, input->mouse_y, input->mouse_dx,
+                      input->mouse_dy);
+        draw_row("Mouse", text, color_good());
+    }
+    else
+    {
+        draw_row("Mouse", "no data yet", color_info());
+    }
+    ImGui::TextUnformatted("Mouse buttons");
+    for (unsigned b = 0; b < 5; b++)
+    {
+        ImGui::SameLine(b == 0 ? ImGui::GetWindowContentRegionMax().x * 0.42f : 0.0f);
+        draw_colored((input->mouse_buttons & (1u << b)) != 0 ? color_pressed() : color_info(), BUTTON_NAMES[b]);
+    }
+    std::snprintf(text, sizeof(text), "up %u, down %u", input->wheel_up, input->wheel_down);
+    draw_row("Wheel clicks", text, input->wheel_up + input->wheel_down > 0 ? color_good() : color_info());
+
+    if (input->pointer_valid)
+    {
+        std::snprintf(text, sizeof(text), "at %d, %d%s", input->pointer_x, input->pointer_y,
+                      input->pointer_pressed ? " (pressed)" : "");
+        draw_row("Pointer", text, input->pointer_pressed ? color_pressed() : color_good());
+    }
+    else
+    {
+        draw_row("Pointer", "no data yet", color_info());
+    }
+
+    if (input->mouse_seen)
+    {
+        draw_crosshair(input->mouse_x, input->mouse_y, IM_COL32(255, 220, 80, 255));
+    }
+    if (input->pointer_valid)
+    {
+        draw_crosshair(input->pointer_x, input->pointer_y, IM_COL32(90, 210, 120, 255));
+    }
 }
 
 static void page_audio(CoreState* core)
@@ -599,6 +726,12 @@ void pages_run_frame(CoreState* core)
         core->key_queue_count = 0;
         return;
     }
+    /* The keyboard callback's events, for the Keyboard page's log (then for ImGui). */
+    for (unsigned i = 0; i < core->key_queue_count; i++)
+    {
+        const KeyEvent* event = &core->key_queue[i];
+        keyboard_log_event(&core->keyboard, event->down, event->keycode, event->character, event->modifiers);
+    }
     UiInput input = {};
     input.pointer_valid = core->input.pointer_valid;
     input.pointer_x = core->input.pointer_x;
@@ -622,11 +755,13 @@ void pages_run_frame(CoreState* core)
         draw_navigation(core);
         switch (pages->page)
         {
-            case PAGE_ENVIRONMENT: page_environment(core); break;
+            case PAGE_CALLBACKS:   page_callbacks(core); break;
             case PAGE_VIDEO:       pattern_area = page_video(core); draw_pattern = true; break;
-            case PAGE_INPUT:       page_input(core); break;
-            case PAGE_CONTROLLERS: page_controllers(core); break;
             case PAGE_AUDIO:       page_audio(core); break;
+            case PAGE_RETROPAD:    page_retropad(core); break;
+            case PAGE_CONTROLLERS: page_controllers(core); break;
+            case PAGE_KEYBOARD:    page_keyboard(core); break;
+            case PAGE_MOUSE:       page_mouse(core); break;
             case PAGE_SRAM:        page_sram(core, entered); break;
             case PAGE_SAVESTATE:   page_savestate(core); break;
             case PAGE_SUMMARY:     page_summary(core); break;

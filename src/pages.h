@@ -5,9 +5,9 @@
  * The test pages and moving between them.
  *
  * Controls on every page:
- *   hold Start  (1 s)  pass this page, go to the next
- *   hold Select (1 s)  fail this page, go to the next
- *   L                  back to the previous page
+ *   hold Start  (1 s)    pass this page, go to the next
+ *   hold Select (1 s)    fail this page, go to the next
+ *   hold L / R  (0.5 s)  the previous / next page (no result)
  * The Pass / Fail / Back buttons can also be clicked with a mouse or pointer.
  */
 
@@ -19,11 +19,13 @@ extern "C" {
 
 typedef enum PageId
 {
-    PAGE_ENVIRONMENT,
+    PAGE_CALLBACKS,
     PAGE_VIDEO,
-    PAGE_INPUT,
-    PAGE_CONTROLLERS,
     PAGE_AUDIO,
+    PAGE_RETROPAD,
+    PAGE_CONTROLLERS,
+    PAGE_KEYBOARD,
+    PAGE_MOUSE,
     PAGE_SRAM,
     PAGE_SAVESTATE,
     PAGE_SUMMARY,
@@ -46,6 +48,8 @@ typedef struct Pages
     bool       shutdown_requested;
     PageId     last_drawn_page;       /* to notice entering a page (focus its text field) */
     bool       drawn_once;
+    int        retropad_port;         /* the port the RetroPad page shows (0..3) */
+    int        controllers_port;      /* the port the Controllers page shows */
 } Pages;
 
 struct CoreState;
