@@ -31,29 +31,29 @@ static const PadPart RETROPAD_PARTS[] = {
 };
 
 static const PadPart NES_PARTS[] = {
-    {RETRO_DEVICE_ID_JOYPAD_UP, 19, 14, 25, 19},
-    {RETRO_DEVICE_ID_JOYPAD_DOWN, 19, 25, 25, 30},
-    {RETRO_DEVICE_ID_JOYPAD_LEFT, 13, 19, 19, 25},
-    {RETRO_DEVICE_ID_JOYPAD_RIGHT, 25, 19, 31, 25},
-    {RETRO_DEVICE_ID_JOYPAD_SELECT, 39, 24, 47, 27},
-    {RETRO_DEVICE_ID_JOYPAD_START, 53, 24, 61, 27},
-    {RETRO_DEVICE_ID_JOYPAD_B, 67, 21, 75, 29},
-    {RETRO_DEVICE_ID_JOYPAD_A, 79, 21, 87, 29},
+    {RETRO_DEVICE_ID_JOYPAD_UP, 19, 20, 25, 25},
+    {RETRO_DEVICE_ID_JOYPAD_DOWN, 19, 31, 25, 36},
+    {RETRO_DEVICE_ID_JOYPAD_LEFT, 13, 25, 19, 31},
+    {RETRO_DEVICE_ID_JOYPAD_RIGHT, 25, 25, 31, 31},
+    {RETRO_DEVICE_ID_JOYPAD_SELECT, 39, 30, 47, 33},
+    {RETRO_DEVICE_ID_JOYPAD_START, 53, 30, 61, 33},
+    {RETRO_DEVICE_ID_JOYPAD_B, 67, 27, 75, 35},
+    {RETRO_DEVICE_ID_JOYPAD_A, 79, 27, 87, 35},
 };
 
 static const PadPart SNES_PARTS[] = {
     {RETRO_DEVICE_ID_JOYPAD_L, 12, 5, 30, 9},
     {RETRO_DEVICE_ID_JOYPAD_R, 70, 5, 88, 9},
-    {RETRO_DEVICE_ID_JOYPAD_UP, 19, 14, 25, 19},
-    {RETRO_DEVICE_ID_JOYPAD_DOWN, 19, 25, 25, 30},
-    {RETRO_DEVICE_ID_JOYPAD_LEFT, 13, 19, 19, 25},
-    {RETRO_DEVICE_ID_JOYPAD_RIGHT, 25, 19, 31, 25},
-    {RETRO_DEVICE_ID_JOYPAD_SELECT, 39, 20, 47, 23},
-    {RETRO_DEVICE_ID_JOYPAD_START, 53, 20, 61, 23},
-    {RETRO_DEVICE_ID_JOYPAD_X, 75, 12, 81, 18},
-    {RETRO_DEVICE_ID_JOYPAD_B, 75, 26, 81, 32},
-    {RETRO_DEVICE_ID_JOYPAD_Y, 68, 19, 74, 25},
-    {RETRO_DEVICE_ID_JOYPAD_A, 82, 19, 88, 25},
+    {RETRO_DEVICE_ID_JOYPAD_UP, 19, 20, 25, 25},
+    {RETRO_DEVICE_ID_JOYPAD_DOWN, 19, 31, 25, 36},
+    {RETRO_DEVICE_ID_JOYPAD_LEFT, 13, 25, 19, 31},
+    {RETRO_DEVICE_ID_JOYPAD_RIGHT, 25, 25, 31, 31},
+    {RETRO_DEVICE_ID_JOYPAD_SELECT, 39, 26, 47, 29},
+    {RETRO_DEVICE_ID_JOYPAD_START, 53, 26, 61, 29},
+    {RETRO_DEVICE_ID_JOYPAD_X, 75, 18, 81, 24},
+    {RETRO_DEVICE_ID_JOYPAD_B, 75, 32, 81, 38},
+    {RETRO_DEVICE_ID_JOYPAD_Y, 68, 25, 74, 31},
+    {RETRO_DEVICE_ID_JOYPAD_A, 82, 25, 88, 31},
 };
 
 // PlayStation's buttons on the RetroPad's positions: Cross bottom (B), Circle
@@ -80,23 +80,29 @@ struct PadLayout
     const PadPart* parts;
     unsigned       count;
     bool           sticks;
-    float          body_x0, body_y0, body_x1, body_y1;
+    float          dpad_y;   // the top of the d-pad's middle (19, lower on pads without sticks, to center them)
 };
+
+// Every style has the same body, so the pads look the same size side by side.
+constexpr float BODY_X0 = 8.0f;
+constexpr float BODY_Y0 = 10.0f;
+constexpr float BODY_X1 = 92.0f;
+constexpr float BODY_Y1 = 46.0f;
 
 static PadLayout layout_for(PadStyle style)
 {
-    PadLayout layout = {RETROPAD_PARTS, sizeof(RETROPAD_PARTS) / sizeof(RETROPAD_PARTS[0]), true, 8, 10, 92, 46};
+    PadLayout layout = {RETROPAD_PARTS, sizeof(RETROPAD_PARTS) / sizeof(RETROPAD_PARTS[0]), true, 19};
     if (style == PadStyle::nes)
     {
-        layout = {NES_PARTS, sizeof(NES_PARTS) / sizeof(NES_PARTS[0]), false, 6, 12, 94, 38};
+        layout = {NES_PARTS, sizeof(NES_PARTS) / sizeof(NES_PARTS[0]), false, 25};
     }
     else if (style == PadStyle::snes)
     {
-        layout = {SNES_PARTS, sizeof(SNES_PARTS) / sizeof(SNES_PARTS[0]), false, 8, 9, 92, 38};
+        layout = {SNES_PARTS, sizeof(SNES_PARTS) / sizeof(SNES_PARTS[0]), false, 25};
     }
     else if (style == PadStyle::dualshock)
     {
-        layout = {DUALSHOCK_PARTS, sizeof(DUALSHOCK_PARTS) / sizeof(DUALSHOCK_PARTS[0]), true, 8, 10, 92, 46};
+        layout = {DUALSHOCK_PARTS, sizeof(DUALSHOCK_PARTS) / sizeof(DUALSHOCK_PARTS[0]), true, 19};
     }
     return layout;
 }
@@ -139,11 +145,11 @@ void pad_draw(PadStyle style, uint16_t held, const int16_t analog[2][2], float w
     ImVec2 origin = ImGui::GetCursorScreenPos();
     origin.x += static_cast<float>(static_cast<int>((available - width) * 0.5f));
 
-    draw->AddRectFilled(ImVec2(origin.x + layout.body_x0 * unit, origin.y + layout.body_y0 * unit),
-                        ImVec2(origin.x + layout.body_x1 * unit, origin.y + layout.body_y1 * unit), COLOR_BODY);
+    draw->AddRectFilled(ImVec2(origin.x + BODY_X0 * unit, origin.y + BODY_Y0 * unit),
+                        ImVec2(origin.x + BODY_X1 * unit, origin.y + BODY_Y1 * unit), COLOR_BODY);
     // The d-pad's middle.
-    draw->AddRectFilled(ImVec2(origin.x + 19.0f * unit, origin.y + 19.0f * unit),
-                        ImVec2(origin.x + 25.0f * unit, origin.y + 25.0f * unit), COLOR_PART);
+    draw->AddRectFilled(ImVec2(origin.x + 19.0f * unit, origin.y + layout.dpad_y * unit),
+                        ImVec2(origin.x + 25.0f * unit, origin.y + (layout.dpad_y + 6.0f) * unit), COLOR_PART);
 
     for (unsigned p = 0; p < layout.count; p++)
     {
