@@ -16,6 +16,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SRAM_MAGIC     0x4D415253u   /* "SRAM" */
 #define SRAM_TEXT_SIZE 48u           /* including the terminating zero */
 
@@ -42,5 +46,9 @@ SramState sram_check(const SramData* sram);
 void sram_seal(SramData* sram);
 
 const char* sram_state_name(SramState state);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

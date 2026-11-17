@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(test_libretro LANGUAGES C)
+project(test_libretro LANGUAGES C CXX)
 
 # Works standalone and as a subdirectory of Multitap (hosts/host-libretro/test-libretro).
 # Inside Multitap the options default to Multitap's own settings.
@@ -22,23 +22,36 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
 endif()
 
-foreach(_dep nuklear/nuklear.h libretro-common/include/libretro.h)
+foreach(_dep imgui/imgui.h imgui_sw/src/imgui_sw.cpp libretro-common/include/libretro.h)
     if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/${_dep}")
         message(FATAL_ERROR "deps/${_dep} is missing. Run: git submodule update --init --recursive")
     endif()
 endforeach()
 
+# Third-party: Dear ImGui and its software renderer (imgui_sw), compiled into
+# the core with hidden symbols, so they never meet a frontend's own ImGui.
+set(_third_party_sources
+    deps/imgui/imgui.cpp
+    deps/imgui/imgui_draw.cpp
+    deps/imgui/imgui_tables.cpp
+    deps/imgui/imgui_widgets.cpp
+    deps/imgui_sw/src/imgui_sw.cpp
+)
+
 # The core: a MODULE library is what frontends dlopen / LoadLibrary.
 add_library(test_libretro MODULE
     src/core.c
-    src/pages.c
+    src/pages.cpp
+    src/ui.cpp
+    src/pixel_font.cpp
+    src/pixel_font_imgui.cpp
     src/video.c
     src/input.c
     src/controllers.c
     src/audio.c
     src/options.c
     src/sram.c
-    src/nuklear_impl.c
+    ${_third_party_sources}
 )
 
 set_target_properties(test_libretro PROPERTIES
@@ -47,12 +60,21 @@ set_target_properties(test_libretro PROPERTIES
     C_STANDARD_REQUIRED ON
     C_EXTENSIONS OFF
     C_VISIBILITY_PRESET hidden      # only the retro_* functions (RETRO_API) are exported
+    CXX_STANDARD 17                 # imgui_sw uses std::clamp
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    CXX_VISIBILITY_PRESET hidden    # ImGui too: never exported, never interposed
+    VISIBILITY_INLINES_HIDDEN ON
 )
+if(NOT MSVC)
+    # C++ written like C (Multitap's STYLE.md): no exceptions, no RTTI.
+    target_compile_options(test_libretro PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions -fno-rtti>)
+endif()
 
 target_include_directories(test_libretro SYSTEM PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/libretro-common/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/deps/nuklear"
-    "${CMAKE_CURRENT_SOURCE_DIR}/deps/nuklear/demo/rawfb"
+    "${CMAKE_CURRENT_SOURCE_DIR}/deps/imgui"
+    "${CMAKE_CURRENT_SOURCE_DIR}/deps/imgui_sw/src"
 )
 target_include_directories(test_libretro PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
@@ -89,20 +111,25 @@ if(MATH_LIBRARY)
     target_link_libraries(test_libretro PRIVATE ${MATH_LIBRARY})
 endif()
 
-# Our code gets strict warnings; nuklear_impl.c is Nuklear itself and gets none.
-set(_own_sources src/core.c src/pages.c src/video.c src/input.c src/audio.c)
+# Our code gets strict warnings; ImGui and imgui_sw are third-party and get none.
+set(_own_c_sources src/core.c src/video.c src/input.c src/controllers.c src/audio.c src/options.c src/sram.c)
+set(_own_cxx_sources src/pages.cpp src/ui.cpp src/pixel_font.cpp src/pixel_font_imgui.cpp)
 if(MSVC)
-    set_source_files_properties(${_own_sources} PROPERTIES COMPILE_OPTIONS "/W4")
-    set_source_files_properties(src/nuklear_impl.c PROPERTIES COMPILE_OPTIONS "/W0")
+    set_source_files_properties(${_own_c_sources} ${_own_cxx_sources} PROPERTIES COMPILE_OPTIONS "/W4")
+    set_source_files_properties(${_third_party_sources} PROPERTIES COMPILE_OPTIONS "/W0")
     if(TEST_LIBRETRO_WARNINGS_AS_ERRORS)
-        set_property(SOURCE ${_own_sources} APPEND PROPERTY COMPILE_OPTIONS "/WX")
+        set_property(SOURCE ${_own_c_sources} ${_own_cxx_sources} APPEND PROPERTY COMPILE_OPTIONS "/WX")
     endif()
 else()
-    set_source_files_properties(${_own_sources} PROPERTIES COMPILE_OPTIONS
-        "-Wall;-Wextra;-Wpedantic;-Wconversion;-Wsign-conversion;-Wshadow;-Wcast-qual;-Wstrict-prototypes;-Wmissing-prototypes;-Wno-missing-field-initializers")
-    set_source_files_properties(src/nuklear_impl.c PROPERTIES COMPILE_OPTIONS "-w")
+    set(_common_warnings -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wshadow -Wcast-qual
+                         -Wno-missing-field-initializers)
+    set_source_files_properties(${_own_c_sources} PROPERTIES COMPILE_OPTIONS
+        "${_common_warnings};-Wstrict-prototypes;-Wmissing-prototypes")
+    set_source_files_properties(${_own_cxx_sources} PROPERTIES COMPILE_OPTIONS
+        "${_common_warnings};-Wmissing-declarations")
+    set_source_files_properties(${_third_party_sources} PROPERTIES COMPILE_OPTIONS "-w")
     if(TEST_LIBRETRO_WARNINGS_AS_ERRORS)
-        set_property(SOURCE ${_own_sources} APPEND PROPERTY COMPILE_OPTIONS "-Werror")
+        set_property(SOURCE ${_own_c_sources} ${_own_cxx_sources} APPEND PROPERTY COMPILE_OPTIONS "-Werror")
     endif()
     if(TEST_LIBRETRO_SANITIZE)
         target_compile_options(test_libretro PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)

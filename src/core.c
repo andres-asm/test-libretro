@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "core.h"
+#include "ui.h"
 
 /* The core's single instance. See core.h for why this is the one global. */
 static CoreState g_core;
@@ -256,6 +257,13 @@ bool retro_load_game(const struct retro_game_info* game)
         core_log(&g_core, RETRO_LOG_ERROR, "could not create the framebuffer\n");
         return false;
     }
+    g_core.ui = ui_create();
+    if (g_core.ui == NULL)
+    {
+        core_log(&g_core, RETRO_LOG_ERROR, "could not start the UI (ImGui, pixel font)\n");
+        video_destroy(&g_core.framebuffer);
+        return false;
+    }
 
     g_core.game_loaded = true;
     core_log(&g_core, RETRO_LOG_INFO, "running, pixel format %s, %ux%u, options API v%u (%s)\n",
@@ -274,6 +282,8 @@ bool retro_load_game_special(unsigned type, const struct retro_game_info* info, 
 
 void retro_unload_game(void)
 {
+    ui_destroy(g_core.ui);
+    g_core.ui = NULL;
     video_destroy(&g_core.framebuffer);
     g_core.game_loaded = false;
 }

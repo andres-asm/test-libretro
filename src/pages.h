@@ -13,6 +13,10 @@
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum PageId
 {
     PAGE_ENVIRONMENT,
@@ -50,5 +54,9 @@ struct CoreState;
 void pages_run_frame(struct CoreState* core);
 
 const char* pages_title(PageId page);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

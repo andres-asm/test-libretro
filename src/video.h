@@ -3,7 +3,7 @@
 
 /*
  * The core's software framebuffer, in whichever libretro pixel format the
- * frontend accepted, plus the Nuklear software renderer drawing into it.
+ * frontend accepted. The UI (ui.h) is drawn into a canvas and copied in.
  */
 
 #include <stdbool.h>
@@ -12,8 +12,9 @@
 
 #include "libretro.h"
 
-struct rawfb_context;
-struct nk_context;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Output size. The width can change at runtime (core option libretro_test_width);
  * VIDEO_MAX_WIDTH is what retro_get_system_av_info reports as max_width. */
@@ -35,19 +36,16 @@ typedef struct Framebuffer
     size_t                  pitch;           /* bytes per row, including padding */
     unsigned                bytes_per_pixel;
     enum retro_pixel_format format;
-
-    struct rawfb_context*   rawfb;           /* Nuklear software renderer */
-    uint8_t*                font_scratch;    /* memory rawfb bakes its font into */
 } Framebuffer;
 
 /* width 1..VIDEO_MAX_WIDTH, height 1..VIDEO_MAX_HEIGHT. */
 bool video_create(Framebuffer* framebuffer, enum retro_pixel_format format, unsigned width, unsigned height);
 void video_destroy(Framebuffer* framebuffer);
 
-struct nk_context* video_ui_context(Framebuffer* framebuffer);
-
-/* Draws the Nuklear UI built this frame into the framebuffer (clearing it first). */
-void video_ui_render(Framebuffer* framebuffer);
+/* Copies a width x height canvas of opaque 32-bit pixels in Dear ImGui's
+ * packing (red in the low byte: 0xAABBGGRR) into the framebuffer, converting
+ * to its pixel format, row by row (the framebuffer's rows are longer). */
+void video_put_canvas(Framebuffer* framebuffer, const uint32_t* canvas);
 
 /* Direct drawing, clipped to the framebuffer. Colors are 8-bit per channel. */
 void video_fill_rect(Framebuffer* framebuffer, int x, int y, int width, int height,
@@ -61,5 +59,9 @@ void video_fill_rect(Framebuffer* framebuffer, int x, int y, int width, int heig
 float video_aspect_ratio(unsigned width, unsigned height);
 
 const char* video_pixel_format_name(enum retro_pixel_format format);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

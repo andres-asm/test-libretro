@@ -50,6 +50,17 @@ const char* controllers_device_name(unsigned device)
     return device == RETRO_DEVICE_NONE ? "None" : "Unknown";
 }
 
+bool controllers_has_sticks(unsigned device)
+{
+    return device == RETRO_DEVICE_JOYPAD;
+}
+
+/* The sticks' names, as a game would call them: [left / right][x / y]. */
+static const char* const STICK_NAMES[2][2] = {
+    {"Move X", "Move Y"},
+    {"Aim X", "Aim Y"},
+};
+
 unsigned controllers_buttons(unsigned device, const ControllerButton** buttons)
 {
     if (device == DEVICE_TWO_BUTTON)
@@ -74,7 +85,7 @@ unsigned controllers_buttons(unsigned device, const ControllerButton** buttons)
 /* Every port's buttons, by its type's names, in one list ending in a NULL description. */
 static void send_descriptors(retro_environment_t environment, ControllersState* state)
 {
-    struct retro_input_descriptor descriptors[CONTROLLER_PORTS * 16 + 1];
+    struct retro_input_descriptor descriptors[CONTROLLER_PORTS * (16 + 4) + 1];
     unsigned count = 0;
     unsigned port = 0;
     for (port = 0; port < CONTROLLER_PORTS; port++)
@@ -90,6 +101,23 @@ static void send_descriptors(retro_environment_t environment, ControllersState* 
             descriptors[count].id = buttons[b].id;
             descriptors[count].description = buttons[b].name;
             count++;
+        }
+        if (controllers_has_sticks(state->device[port]))
+        {
+            unsigned stick = 0;
+            unsigned axis = 0;
+            for (stick = 0; stick < 2; stick++)
+            {
+                for (axis = 0; axis < 2; axis++)
+                {
+                    descriptors[count].port = port;
+                    descriptors[count].device = RETRO_DEVICE_ANALOG;
+                    descriptors[count].index = stick;   /* RETRO_DEVICE_INDEX_ANALOG_LEFT / RIGHT */
+                    descriptors[count].id = axis;       /* RETRO_DEVICE_ID_ANALOG_X / Y */
+                    descriptors[count].description = STICK_NAMES[stick][axis];
+                    count++;
+                }
+            }
         }
     }
     descriptors[count].port = 0;
@@ -149,6 +177,13 @@ void controllers_read(ControllersState* state, retro_input_state_t input_state)
             {
                 state->buttons[port] = (uint16_t)(state->buttons[port] | (1u << buttons[b].id));
             }
+        }
+        for (b = 0; b < 4; b++)
+        {
+            unsigned stick = b / 2;
+            unsigned axis = b % 2;
+            state->analog[port][stick][axis] = controllers_has_sticks(state->device[port])
+                                                   ? input_state(port, RETRO_DEVICE_ANALOG, stick, axis) : 0;
         }
     }
 }

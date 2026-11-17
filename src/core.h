@@ -21,6 +21,10 @@
 #include "video.h"
 #include "pages.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define TEXT_FIELD_SIZE 256
 
 /* Key events from the frontend's keyboard callback, kept until the next frame
@@ -71,6 +75,8 @@ typedef struct EnvironmentReport
     bool     av_info_accepted;        /* answer to the last one */
 } EnvironmentReport;
 
+struct Ui;
+
 typedef struct CoreState
 {
     retro_environment_t        environment;
@@ -90,6 +96,7 @@ typedef struct CoreState
     ControllersState controllers;   /* the Controllers page: types per port and their buttons */
     AudioState  audio;
     Pages      pages;
+    struct Ui* ui;                  /* ImGui drawing the pages (ui.h); NULL if it couldn't start */
 
     unsigned   max_height;          /* max_height we last reported (load or SET_SYSTEM_AV_INFO) */
     unsigned   fps;                 /* frame rate we last reported */
@@ -120,6 +127,10 @@ typedef struct CoreState
 void core_log(CoreState* core, enum retro_log_level level, const char* format, ...) __attribute__((format(printf, 3, 4)));
 #else
 void core_log(CoreState* core, enum retro_log_level level, const char* format, ...);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

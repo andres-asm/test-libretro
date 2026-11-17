@@ -1,8 +1,12 @@
-[submodule "deps/nuklear"]
-	path = deps/nuklear
-	url = https://github.com/Immediate-Mode-UI/Nuklear.git
-	shallow = true
 [submodule "deps/libretro-common"]
 	path = deps/libretro-common
 	url = https://github.com/libretro/libretro-common.git
+	shallow = true
+[submodule "deps/imgui"]
+	path = deps/imgui
+	url = https://github.com/ocornut/imgui.git
+	shallow = true
+[submodule "deps/imgui_sw"]
+	path = deps/imgui_sw
+	url = https://github.com/andres-asm/imguisw.git
 	shallow = true

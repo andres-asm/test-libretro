@@ -7,7 +7,8 @@
  * names for them (SET_INPUT_DESCRIPTORS, sent again whenever the frontend
  * plugs another type into a port with retro_set_controller_port_device).
  *
- *   RetroPad          RETRO_DEVICE_JOYPAD: every button, by the RetroPad's names
+ *   RetroPad          RETRO_DEVICE_JOYPAD: every button, by the RetroPad's names,
+ *                     and both sticks (analog descriptors "Move" / "Aim")
  *   Two-button pad    a subclass: the d-pad, FIRE (B), JUMP (A), PAUSE (Start)
  *   Six-button pad    a subclass: the d-pad, A (Y) B (B) C (A) X (L) Y (X) Z (R),
  *                     START, MODE (Select): the names don't match the RetroPad's
@@ -17,6 +18,10 @@
 #include <stdint.h>
 
 #include "libretro.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define CONTROLLER_PORTS 4
 
@@ -38,6 +43,7 @@ typedef struct ControllersState
     unsigned device_changes;                  /* retro_set_controller_port_device calls */
     bool     unknown_device[CONTROLLER_PORTS];   /* it plugged something we never offered */
     uint16_t buttons[CONTROLLER_PORTS];       /* bit N = RETRO_DEVICE_ID_JOYPAD_N held, read this frame */
+    int16_t  analog[CONTROLLER_PORTS][2][2];  /* [port][left / right stick][x / y], RetroPad ports only */
 } ControllersState;
 
 /* SET_CONTROLLER_INFO and the first descriptors (every port a RetroPad). */
@@ -51,7 +57,14 @@ void controllers_read(ControllersState* state, retro_input_state_t input_state);
 
 const char* controllers_device_name(unsigned device);
 
+/* Does the type have the two sticks? */
+bool controllers_has_sticks(unsigned device);
+
 /* The type's buttons (in the order shown), and how many. */
 unsigned controllers_buttons(unsigned device, const ControllerButton** buttons);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

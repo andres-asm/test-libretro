@@ -14,6 +14,10 @@
 
 #include "libretro.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define AUDIO_SAMPLE_RATE_DEFAULT 48000u
 #define AUDIO_MAX_FRAMES_PER_RUN  3201   /* 96000 / 30 (highest rate, slowest frame rate) + 1 for the fraction */
 #define AUDIO_TONE_HZ         440.0
@@ -49,5 +53,9 @@ double audio_frames_per_run(const AudioState* audio);
 void audio_run_frame(AudioState* audio, retro_audio_sample_t sample, retro_audio_sample_batch_t batch);
 
 const char* audio_channels_name(AudioChannels channels);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

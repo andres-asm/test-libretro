@@ -8,6 +8,10 @@
 
 #include "libretro.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* How long Start/Select must be held to pass/fail a page (frames at 60 fps). */
 #define INPUT_HOLD_FRAMES 60
 
@@ -37,5 +41,9 @@ bool input_is_down(const InputState* input, unsigned button_id);
 bool input_was_pressed(const InputState* input, unsigned button_id);   /* down now, up last frame */
 
 const char* input_button_name(unsigned button_id);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

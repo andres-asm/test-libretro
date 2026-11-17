@@ -18,6 +18,10 @@
 
 #include "libretro.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define OPTION_WIDTH_DEFAULT 640u
 #define OPTION_WIDTH_WIDE    720u
 #define OPTION_HEIGHT_DEFAULT 480u   /* also 600, 720 */
@@ -55,5 +59,9 @@ void options_read(retro_environment_t environment, OptionValues* values);
 
 /* GET_VARIABLE_UPDATE: true if the frontend says an option changed since the last read. */
 bool options_changed(retro_environment_t environment);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

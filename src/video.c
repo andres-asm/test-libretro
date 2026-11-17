@@ -3,58 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "nuklear_config.h"
-
-/* rawfb bakes Nuklear's default font into this; 512x512 is what its demos use. */
-#define FONT_SCRATCH_SIZE (512u * 512u)
-
-/*
- * How each libretro pixel format is laid out, in rawfb's terms:
- * channel bit position (shift) and how many low bits are dropped (loss).
- * aloss = 8 means "no alpha channel".
- */
-static struct rawfb_pl pixel_layout(enum retro_pixel_format format)
+/* Bytes per pixel of each libretro pixel format. */
+static unsigned format_bytes(enum retro_pixel_format format)
 {
-    struct rawfb_pl layout;
-    memset(&layout, 0, sizeof(layout));
-
-    switch (format)
-    {
-        case RETRO_PIXEL_FORMAT_XRGB8888:
-            layout.bytesPerPixel = 4;
-            layout.rshift = 16;
-            layout.gshift = 8;
-            layout.bshift = 0;
-            layout.rloss = 0;
-            layout.gloss = 0;
-            layout.bloss = 0;
-            layout.aloss = 8;
-            break;
-
-        case RETRO_PIXEL_FORMAT_RGB565:
-            layout.bytesPerPixel = 2;
-            layout.rshift = 11;
-            layout.gshift = 5;
-            layout.bshift = 0;
-            layout.rloss = 3;
-            layout.gloss = 2;
-            layout.bloss = 3;
-            layout.aloss = 8;
-            break;
-
-        case RETRO_PIXEL_FORMAT_0RGB1555:
-        default:
-            layout.bytesPerPixel = 2;
-            layout.rshift = 10;
-            layout.gshift = 5;
-            layout.bshift = 0;
-            layout.rloss = 3;
-            layout.gloss = 3;
-            layout.bloss = 3;
-            layout.aloss = 8;
-            break;
-    }
-    return layout;
+    return format == RETRO_PIXEL_FORMAT_XRGB8888 ? 4u : 2u;
 }
 
 const char* video_pixel_format_name(enum retro_pixel_format format)
@@ -75,8 +27,6 @@ float video_aspect_ratio(unsigned width, unsigned height)
 
 bool video_create(Framebuffer* framebuffer, enum retro_pixel_format format, unsigned width, unsigned height)
 {
-    struct rawfb_pl layout = pixel_layout(format);
-
     memset(framebuffer, 0, sizeof(*framebuffer));
     if (width == 0 || width > VIDEO_MAX_WIDTH || height == 0 || height > VIDEO_MAX_HEIGHT)
     {
@@ -85,47 +35,17 @@ bool video_create(Framebuffer* framebuffer, enum retro_pixel_format format, unsi
     framebuffer->width = width;
     framebuffer->height = height;
     framebuffer->format = format;
-    framebuffer->bytes_per_pixel = layout.bytesPerPixel;
-    framebuffer->pitch = (size_t)width * layout.bytesPerPixel + VIDEO_PITCH_PADDING;
+    framebuffer->bytes_per_pixel = format_bytes(format);
+    framebuffer->pitch = (size_t)width * framebuffer->bytes_per_pixel + VIDEO_PITCH_PADDING;
 
     framebuffer->pixels = (uint8_t*)calloc(framebuffer->pitch * height, 1);
-    framebuffer->font_scratch = (uint8_t*)calloc(FONT_SCRATCH_SIZE, 1);
-    if (framebuffer->pixels == NULL || framebuffer->font_scratch == NULL)
-    {
-        video_destroy(framebuffer);
-        return false;
-    }
-
-    framebuffer->rawfb = nk_rawfb_init(framebuffer->pixels, framebuffer->font_scratch,
-                                       width, height, (unsigned)framebuffer->pitch, layout);
-    if (framebuffer->rawfb == NULL)
-    {
-        video_destroy(framebuffer);
-        return false;
-    }
-    return true;
+    return framebuffer->pixels != NULL;
 }
 
 void video_destroy(Framebuffer* framebuffer)
 {
-    if (framebuffer->rawfb != NULL)
-    {
-        nuklear_rawfb_shutdown(framebuffer->rawfb);
-    }
-    free(framebuffer->font_scratch);
     free(framebuffer->pixels);
     memset(framebuffer, 0, sizeof(*framebuffer));
-}
-
-struct nk_context* video_ui_context(Framebuffer* framebuffer)
-{
-    return nuklear_rawfb_get_context(framebuffer->rawfb);
-}
-
-void video_ui_render(Framebuffer* framebuffer)
-{
-    struct nk_color clear = nk_rgb(24, 24, 32);
-    nk_rawfb_render(framebuffer->rawfb, clear, 1);
 }
 
 /* Packs an 8-bit-per-channel color into the framebuffer's pixel format. */
@@ -177,6 +97,33 @@ void video_fill_rect(Framebuffer* framebuffer, int x, int y, int width, int heig
 
         for (column = x; column < x_end; column++)
         {
+            if (framebuffer->bytes_per_pixel == 4)
+            {
+                ((uint32_t*)(void*)line)[column] = packed;
+            }
+            else
+            {
+                ((uint16_t*)(void*)line)[column] = (uint16_t)packed;
+            }
+        }
+    }
+}
+
+void video_put_canvas(Framebuffer* framebuffer, const uint32_t* canvas)
+{
+    unsigned row = 0;
+    unsigned column = 0;
+
+    for (row = 0; row < framebuffer->height; row++)
+    {
+        uint8_t* line = framebuffer->pixels + (size_t)row * framebuffer->pitch;
+        const uint32_t* source = canvas + (size_t)row * framebuffer->width;
+
+        for (column = 0; column < framebuffer->width; column++)
+        {
+            uint32_t color = source[column];
+            uint32_t packed = pack_color(framebuffer, (uint8_t)(color & 0xFFu), (uint8_t)((color >> 8) & 0xFFu),
+                                         (uint8_t)((color >> 16) & 0xFFu));
             if (framebuffer->bytes_per_pixel == 4)
             {
                 ((uint32_t*)(void*)line)[column] = packed;

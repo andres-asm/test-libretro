@@ -4,9 +4,11 @@ A libretro core for testing libretro **frontends**. Instead of emulating a
 system, it walks you through a series of test pages, next, next, next, and
 reports what the frontend did.
 
-It draws its own UI in software ([Nuklear](https://github.com/Immediate-Mode-UI/Nuklear)
-with its `rawfb` renderer) into a normal libretro framebuffer, so it runs in any frontend that
-can run a software-rendered core.
+It draws its own UI in software ([Dear ImGui](https://github.com/ocornut/imgui), painted by
+[imgui_sw](https://github.com/emilk/imgui_software_renderer), with piccolo's pixel font) into a
+normal libretro framebuffer, so it runs in any frontend that can run a software-rendered core.
+ImGui is compiled into the core with hidden symbols: a frontend that uses ImGui itself never
+shares it.
 
 ## Pages
 
@@ -23,7 +25,8 @@ can run a software-rendered core.
 3. **Input**: every joypad button and both analog sticks of controller 1, live,
    plus the pointer. Checks that bitmask reads match per-button reads.
 4. **Controllers**: each port offers three controller types
-   (`SET_CONTROLLER_INFO`): RetroPad, Two-button pad (d-pad, Fire, Jump, Pause)
+   (`SET_CONTROLLER_INFO`): RetroPad (every button, and both sticks as analog
+   descriptors "Move" / "Aim"), Two-button pad (d-pad, Fire, Jump, Pause)
    and Six-button pad (d-pad, A B C X Y Z, Start, Mode, on RetroPad buttons
    whose names don't match). Plugging a type into a port
    (`retro_set_controller_port_device`) sends the input descriptors again with
@@ -111,11 +114,12 @@ Git submodules in `deps/`, never edited:
 
 | Submodule | Pinned at | Used for | License |
 |-----------|-----------|----------|---------|
-| `deps/nuklear` | `bab1849` | `nuklear.h`, `demo/rawfb/nuklear_rawfb.h` | Public domain / MIT; rawfb: MIT |
+| `deps/imgui` | `v1.93.0` | the UI | MIT |
+| `deps/imgui_sw` | `9c48df5` ([fork](https://github.com/andres-asm/imguisw) of emilk/imgui_software_renderer, adapted to ImGui 1.92+) | `src/imgui_sw.*`: paints ImGui into the framebuffer | Public domain |
 | `deps/libretro-common` | `52781c4` | `include/libretro.h` only | MIT |
 
-Note: upstream `nk_rawfb_shutdown()` doesn't free the font atlas;
-`src/nuklear_impl.c` works around it.
+`src/pixel_font*` is a copy of Multitap's piccolo pixel font (5x5 capitals, drawn for piccolo), so
+the core looks like piccolo.
 
 ## License
 
