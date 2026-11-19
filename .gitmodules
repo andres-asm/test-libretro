@@ -8,5 +8,5 @@
 	shallow = true
 [submodule "deps/imgui_sw"]
 	path = deps/imgui_sw
-	url = https://github.com/andres-asm/imguisw.git
+	url = https://github.com/multitap-org/imguisw.git
 	shallow = true

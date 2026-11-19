@@ -105,7 +105,7 @@ first, as v0 requires). The Callbacks page shows which one was used.
 ## Building
 
 ```sh
-git clone --recursive https://github.com/andres-asm/test-libretro.git
+git clone --recursive https://github.com/multitap-org/test-libretro.git
 cd test-libretro
 cmake -S . -B build -G Ninja
 cmake --build build
@@ -124,7 +124,7 @@ Git submodules in `deps/`, never edited:
 | Submodule | Pinned at | Used for | License |
 |-----------|-----------|----------|---------|
 | `deps/imgui` | `v1.93.0` | the UI | MIT |
-| `deps/imgui_sw` | `9c48df5` ([fork](https://github.com/andres-asm/imguisw) of emilk/imgui_software_renderer, adapted to ImGui 1.92+) | `src/imgui_sw.*`: paints ImGui into the framebuffer | Public domain |
+| `deps/imgui_sw` | `9c48df5` ([fork](https://github.com/multitap-org/imguisw) of emilk/imgui_software_renderer, adapted to ImGui 1.92+) | `src/imgui_sw.*`: paints ImGui into the framebuffer | Public domain |
 | `deps/libretro-common` | `52781c4` | `include/libretro.h` only | MIT |
 
 `src/pixel_font*` is a copy of Multitap's piccolo pixel font (5x5 capitals, drawn for piccolo), so
