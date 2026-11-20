@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "adapters.h"
 #include "audio.h"
 #include "controllers.h"
 #include "input.h"
@@ -99,6 +100,7 @@ typedef struct CoreState
     ControllersState controllers;   /* every port's pad, and the controller types per port */
     KeyboardState    keyboard;      /* the Keyboard page: both ways of reading it */
     TextInputState   text_input;    /* Multitap's text input extension (text_input.h) */
+    AdaptersState    adapters;      /* Multitap's port adapters extension (adapters.h) */
     AudioState  audio;
     Pages      pages;
     struct Ui* ui;                  /* ImGui drawing the pages (ui.h); NULL if it couldn't start */

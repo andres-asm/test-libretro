@@ -48,7 +48,7 @@ typedef struct Pages
     bool       shutdown_requested;
     PageId     last_drawn_page;       /* to notice entering a page (focus its text field) */
     bool       drawn_once;
-    int        retropad_port;         /* the port the RetroPad page shows (0..3) */
+    int        retropad_port;         /* the port the RetroPad page shows (0..7) */
     int        controllers_port;      /* the port the Controllers page shows */
 } Pages;
 

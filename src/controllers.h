@@ -27,7 +27,8 @@
 extern "C" {
 #endif
 
-#define CONTROLLER_PORTS 4
+#define CONTROLLER_PORTS 8        /* players read (8: two multitaps of 4, port adapters extension) */
+#define CONTROLLER_INFO_PORTS 4   /* ports described with SET_CONTROLLER_INFO */
 
 #define DEVICE_NES       RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_JOYPAD, 0)
 #define DEVICE_SNES      RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_JOYPAD, 1)
@@ -66,6 +67,7 @@ void controllers_set_device(retro_environment_t environment, ControllersState* s
 void controllers_read(ControllersState* state, retro_input_state_t input_state);
 
 /* The types offered, in order (for a port picker), and how many. */
+const struct retro_controller_description* controllers_types(void);
 unsigned controllers_type_count(void);
 unsigned controllers_type_device(unsigned index);
 

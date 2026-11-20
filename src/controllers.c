@@ -53,6 +53,11 @@ static const struct retro_controller_description TYPES[] = {
 /* The sticks' names: one per stick, for both of its axes. */
 static const char* const STICK_NAMES[2] = {"Left Stick", "Right Stick"};
 
+const struct retro_controller_description* controllers_types(void)
+{
+    return TYPES;
+}
+
 unsigned controllers_type_count(void)
 {
     return (unsigned)COUNT_OF(TYPES);
@@ -165,17 +170,20 @@ static void send_descriptors(retro_environment_t environment, ControllersState* 
 
 void controllers_register(retro_environment_t environment, ControllersState* state)
 {
-    struct retro_controller_info info[CONTROLLER_PORTS + 1];
+    struct retro_controller_info info[CONTROLLER_INFO_PORTS + 1];
     unsigned port = 0;
     for (port = 0; port < CONTROLLER_PORTS; port++)
     {
-        info[port].types = TYPES;
-        info[port].num_types = (unsigned)COUNT_OF(TYPES);
         state->device[port] = RETRO_DEVICE_JOYPAD;
         state->unknown_device[port] = false;
     }
-    info[CONTROLLER_PORTS].types = NULL;   /* the list ends with an empty entry */
-    info[CONTROLLER_PORTS].num_types = 0;
+    for (port = 0; port < CONTROLLER_INFO_PORTS; port++)
+    {
+        info[port].types = TYPES;
+        info[port].num_types = (unsigned)COUNT_OF(TYPES);
+    }
+    info[CONTROLLER_INFO_PORTS].types = NULL;   /* the list ends with an empty entry */
+    info[CONTROLLER_INFO_PORTS].num_types = 0;
     state->info_accepted = environment(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, info);
     send_descriptors(environment, state);
 }

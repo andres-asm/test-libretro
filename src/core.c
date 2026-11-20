@@ -217,6 +217,9 @@ void retro_init(void)
     }
 
     text_input_probe(&g_core.text_input, g_core.environment);
+    adapters_offer(&g_core.adapters, g_core.environment);
+    core_log(&g_core, RETRO_LOG_INFO, "port adapters extension: %s\n",
+             g_core.adapters.supported ? "the frontend drives them" : "not available");
     core_log(&g_core, RETRO_LOG_INFO, "text input extension: %s\n",
              g_core.text_input.supported ? "the frontend has it" : "not available");
 
@@ -245,6 +248,7 @@ bool retro_load_game(const struct retro_game_info* game)
     (void)game;   /* content is ignored; the core runs without it */
 
     options_read(g_core.environment, &g_core.options);
+    adapters_suggest(&g_core.adapters, g_core.environment);   /* "this game wants a Multitap on port 2" */
     format = choose_pixel_format();
 
     /* Zero until the frontend loads the saved block (after this function returns). */

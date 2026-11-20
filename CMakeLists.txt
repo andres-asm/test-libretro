@@ -54,6 +54,7 @@ add_library(test_libretro MODULE
     src/options.c
     src/sram.c
     src/text_input.c
+    src/adapters.c
     ${_third_party_sources}
 )
 
@@ -138,7 +139,7 @@ endif()
 
 # Our code gets strict warnings; ImGui and imgui_sw are third-party and get none.
 set(_own_c_sources src/core.c src/video.c src/input.c src/controllers.c src/keyboard.c src/audio.c src/options.c src/sram.c
-                    src/text_input.c)
+                    src/text_input.c src/adapters.c)
 set(_own_cxx_sources src/pages.cpp src/ui.cpp src/pad_drawing.cpp src/pixel_font.cpp src/pixel_font_imgui.cpp)
 if(MSVC)
     set_source_files_properties(${_own_c_sources} ${_own_cxx_sources} PROPERTIES COMPILE_OPTIONS "/W4")

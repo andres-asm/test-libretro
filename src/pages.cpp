@@ -451,7 +451,7 @@ static void port_combo(int* port)
     ImGui::TextUnformatted("Port");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(90.0f);
-    ImGui::Combo("##port", port, "Port 1\0Port 2\0Port 3\0Port 4\0");
+    ImGui::Combo("##port", port, "Port 1\0Port 2\0Port 3\0Port 4\0Port 5\0Port 6\0Port 7\0Port 8\0");
     ImGui::SameLine();
     draw_colored(color_info(), "(hold X: next port)");
 }
@@ -505,6 +505,38 @@ static void page_controllers(CoreState* core)
     bool sticks = controllers_has_sticks(device);
     pad_draw(pad_style_for_device(device), static_cast<uint16_t>(state->buttons[port] & controllers_button_mask(device)),
              sticks ? state->analog[port] : STILL, 380.0f);
+
+    const AdaptersState* adapters = &core->adapters;
+    if (adapters->supported)
+    {
+        ImGui::Spacing();
+        draw_text("Multitap's port adapters extension: pick an adapter for each physical port in the frontend "
+                  "(port 1: Multitap or Four Score over both ports; port 2: Multitap; AUTO: a Multitap on port 2).");
+        for (unsigned p = 0; p < ADAPTERS_PHYSICAL_PORTS; p++)
+        {
+            char label[32];
+            std::snprintf(label, sizeof(label), "Physical port %u", p + 1);
+            if (adapters->taken[p])
+            {
+                draw_row(label, "taken by the adapter before it", color_info());
+                continue;
+            }
+            unsigned players = adapters_players(adapters->adapter[p]);
+            unsigned first = adapters->first_port[p] + 1;
+            if (players > 1)
+            {
+                std::snprintf(text, sizeof(text), "%s, players %u-%u", adapters_name(adapters->adapter[p]), first,
+                              first + players - 1);
+            }
+            else
+            {
+                std::snprintf(text, sizeof(text), "no adapter, player %u", first);
+            }
+            draw_row(label, text, adapters->adapter[p] != 0 ? color_good() : color_info());
+        }
+        std::snprintf(text, sizeof(text), "%u", adapters->set_calls);
+        draw_row("set_adapters calls", text, adapters->set_calls > 0 ? color_good() : color_info());
+    }
 
     draw_colored(state->info_accepted ? color_good() : color_bad(),
                  state->info_accepted ? "SET_CONTROLLER_INFO: accepted" : "SET_CONTROLLER_INFO: not accepted");
