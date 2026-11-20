@@ -56,6 +56,7 @@ typedef struct InputState
     unsigned l_held_frames;
     unsigned r_held_frames;
     unsigned x_held_frames;
+    unsigned y_held_frames;
 } InputState;
 
 void input_update(InputState* input, retro_input_poll_t poll, retro_input_state_t state,

@@ -19,6 +19,7 @@
 #include "libretro.h"
 #include "options.h"
 #include "sram.h"
+#include "text_input.h"
 #include "video.h"
 #include "pages.h"
 
@@ -97,6 +98,7 @@ typedef struct CoreState
     InputState  input;
     ControllersState controllers;   /* every port's pad, and the controller types per port */
     KeyboardState    keyboard;      /* the Keyboard page: both ways of reading it */
+    TextInputState   text_input;    /* Multitap's text input extension (text_input.h) */
     AudioState  audio;
     Pages      pages;
     struct Ui* ui;                  /* ImGui drawing the pages (ui.h); NULL if it couldn't start */

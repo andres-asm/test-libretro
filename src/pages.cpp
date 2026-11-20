@@ -163,6 +163,14 @@ static void handle_controller(CoreState* core)
         return;
     }
 
+    /* Hold Y on the Keyboard page: ask the frontend for a name (text input extension). */
+    if (input->y_held_frames >= INPUT_PAGE_HOLD_FRAMES && pages->page == PAGE_KEYBOARD && core->text_input.supported)
+    {
+        pages->waiting_for_release = true;
+        text_input_ask(&core->text_input, core->environment, false);
+        return;
+    }
+
     /* Page-specific controls. */
     if (pages->page == PAGE_AUDIO)
     {
@@ -527,6 +535,43 @@ static void page_keyboard(CoreState* core)
     draw_colored(color_info(), "(hold X: the other mode)");
     ImGui::Spacing();
 
+    const TextInputState* text_input = &core->text_input;
+    if (text_input->supported)
+    {
+        draw_text("Multitap's text input extension: this page asks for the keyboard (a phone opens its own), "
+                  "and can ask the frontend for a string.");
+        draw_row("Keyboard asked (KEYS)", text_input->keys_asked ? "yes" : "no",
+                 text_input->keys_asked ? color_good() : color_info());
+        if (ImGui::Button("Ask for a name"))
+        {
+            text_input_ask(&core->text_input, core->environment, false);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Ask for a number"))
+        {
+            text_input_ask(&core->text_input, core->environment, true);
+        }
+        ImGui::SameLine();
+        draw_colored(color_info(), "(hold Y: a name)");
+        if (text_input->waiting)
+        {
+            draw_row("Answer", "waiting for the frontend", color_pressed());
+        }
+        else if (text_input->answers == 0)
+        {
+            draw_row("Answer", "none yet", color_info());
+        }
+        else if (text_input->last_cancelled)
+        {
+            draw_row("Answer", "cancelled", color_info());
+        }
+        else
+        {
+            draw_row("Answer", text_input->last_answer, color_good());
+        }
+        ImGui::Spacing();
+    }
+
     if (keyboard->mode == KEYBOARD_CALLBACK)
     {
         draw_row("SET_KEYBOARD_CALLBACK", core->report.keyboard_callback_accepted ? "accepted" : "refused (no events)",
@@ -759,6 +804,9 @@ void pages_run_frame(CoreState* core)
 
     handle_controller(core);
     core->audio.playing = (pages->page == PAGE_AUDIO);
+    /* The pages you type on ask for the keyboard (a phone opens its own). */
+    text_input_want_keys(&core->text_input, core->environment,
+                         pages->page == PAGE_KEYBOARD || pages->page == PAGE_SRAM);
     bool entered = !pages->drawn_once || pages->page != pages->last_drawn_page;
     pages->last_drawn_page = pages->page;
     pages->drawn_once = true;

@@ -53,6 +53,7 @@ add_library(test_libretro MODULE
     src/audio.c
     src/options.c
     src/sram.c
+    src/text_input.c
     ${_third_party_sources}
 )
 
@@ -79,6 +80,28 @@ target_include_directories(test_libretro SYSTEM PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/imgui_sw/src"
 )
 target_include_directories(test_libretro PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# Multitap's libretro extensions (libretro_extensions.h, kept in host-libretro).
+# Found where piccolo and the test frontend keep host-libretro, or given with
+# TEST_LIBRETRO_EXTENSIONS_DIR; without it the core is built without them.
+set(TEST_LIBRETRO_EXTENSIONS_DIR "" CACHE PATH "Folder with libretro_extensions.h (host-libretro's src/)")
+set(_extensions_dir "${TEST_LIBRETRO_EXTENSIONS_DIR}")
+if(NOT _extensions_dir)
+    foreach(_candidate "${CMAKE_SOURCE_DIR}/deps/libretro/host-libretro/src"
+                       "${CMAKE_SOURCE_DIR}/deps/host-libretro/src")
+        if(EXISTS "${_candidate}/libretro_extensions.h")
+            set(_extensions_dir "${_candidate}")
+            break()
+        endif()
+    endforeach()
+endif()
+if(_extensions_dir AND EXISTS "${_extensions_dir}/libretro_extensions.h")
+    target_include_directories(test_libretro PRIVATE "${_extensions_dir}")
+    target_compile_definitions(test_libretro PRIVATE TEST_LIBRETRO_EXTENSIONS=1)
+    message(STATUS "Test libretro: Multitap's extensions from ${_extensions_dir}")
+else()
+    message(STATUS "Test libretro: built without Multitap's extensions (libretro_extensions.h not found)")
+endif()
 
 # The core's version, reported as library_version: the base on main (or
 # master), base-<branch> on any other branch, base-<commit> when detached, the
@@ -114,7 +137,8 @@ if(MATH_LIBRARY)
 endif()
 
 # Our code gets strict warnings; ImGui and imgui_sw are third-party and get none.
-set(_own_c_sources src/core.c src/video.c src/input.c src/controllers.c src/keyboard.c src/audio.c src/options.c src/sram.c)
+set(_own_c_sources src/core.c src/video.c src/input.c src/controllers.c src/keyboard.c src/audio.c src/options.c src/sram.c
+                    src/text_input.c)
 set(_own_cxx_sources src/pages.cpp src/ui.cpp src/pad_drawing.cpp src/pixel_font.cpp src/pixel_font_imgui.cpp)
 if(MSVC)
     set_source_files_properties(${_own_c_sources} ${_own_cxx_sources} PROPERTIES COMPILE_OPTIONS "/W4")

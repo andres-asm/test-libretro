@@ -216,6 +216,10 @@ void retro_init(void)
         report->keyboard_callback_accepted = g_core.environment(RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK, &keyboard);
     }
 
+    text_input_probe(&g_core.text_input, g_core.environment);
+    core_log(&g_core, RETRO_LOG_INFO, "text input extension: %s\n",
+             g_core.text_input.supported ? "the frontend has it" : "not available");
+
     /* Specified with NULL data: the return value IS the answer. */
     report->input_bitmasks = g_core.environment(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL);
     g_core.controllers.bitmask_supported = report->input_bitmasks;
@@ -287,6 +291,9 @@ void retro_unload_game(void)
     g_core.ui = NULL;
     video_destroy(&g_core.framebuffer);
     g_core.game_loaded = false;
+    /* The frontend drops our requests with the game (and never answers a TEXT one). */
+    g_core.text_input.keys_asked = false;
+    g_core.text_input.waiting = false;
 }
 
 void retro_get_system_av_info(struct retro_system_av_info* info)
